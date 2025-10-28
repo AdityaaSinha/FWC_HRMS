@@ -1,0 +1,153 @@
+<svg width="1200" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .role-box { fill: #1e293b; stroke: #3b82f6; stroke-width: 2; rx: 10; }
+      .admin-box { fill: #7c3aed; stroke: #a855f7; stroke-width: 3; }
+      .manager-box { fill: #059669; stroke: #10b981; stroke-width: 2; }
+      .hr-box { fill: #dc2626; stroke: #ef4444; stroke-width: 2; }
+      .employee-box { fill: #ea580c; stroke: #f97316; stroke-width: 2; }
+      .role-title { fill: white; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; text-anchor: middle; }
+      .role-subtitle { fill: #cbd5e1; font-family: Arial, sans-serif; font-size: 12px; text-anchor: middle; }
+      .workflow-arrow { stroke: #3b82f6; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .workflow-label { fill: #64748b; font-family: Arial, sans-serif; font-size: 11px; text-anchor: middle; }
+      .process-box { fill: #f1f5f9; stroke: #64748b; stroke-width: 1; rx: 5; }
+      .process-text { fill: #334155; font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; }
+      .legend-box { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; rx: 5; }
+      .legend-text { fill: #475569; font-family: Arial, sans-serif; font-size: 12px; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="600" y="30" class="role-title" style="font-size: 24px;">HRMS Role Interconnectivity Diagram</text>
+  
+  <!-- Management Admin (Top Center) -->
+  <rect x="450" y="60" width="300" height="120" class="role-box admin-box"/>
+  <text x="600" y="85" class="role-title">Management Admin</text>
+  <text x="600" y="105" class="role-subtitle">System Administration & Oversight</text>
+  <text x="600" y="125" class="role-subtitle">• Organization-wide policies</text>
+  <text x="600" y="140" class="role-subtitle">• System configuration</text>
+  <text x="600" y="155" class="role-subtitle">• Analytics & reporting</text>
+  <text x="600" y="170" class="role-subtitle">• Department hierarchy</text>
+  
+  <!-- Senior Manager (Left) -->
+  <rect x="50" y="300" width="280" height="120" class="role-box manager-box"/>
+  <text x="190" y="325" class="role-title">Senior Manager</text>
+  <text x="190" y="345" class="role-subtitle">Department Management</text>
+  <text x="190" y="365" class="role-subtitle">• Team oversight</text>
+  <text x="190" y="380" class="role-subtitle">• Performance reviews</text>
+  <text x="190" y="395" class="role-subtitle">• Project management</text>
+  <text x="190" y="410" class="role-subtitle">• Leave approvals</text>
+  
+  <!-- HR Recruiter (Right) -->
+  <rect x="870" y="300" width="280" height="120" class="role-box hr-box"/>
+  <text x="1010" y="325" class="role-title">HR Recruiter</text>
+  <text x="1010" y="345" class="role-subtitle">Talent & Employee Relations</text>
+  <text x="1010" y="365" class="role-subtitle">• Hiring workflows</text>
+  <text x="1010" y="380" class="role-subtitle">• Policy compliance</text>
+  <text x="1010" y="395" class="role-subtitle">• Employee engagement</text>
+  <text x="1010" y="410" class="role-subtitle">• Onboarding coordination</text>
+  
+  <!-- Employee (Bottom Center) -->
+  <rect x="450" y="540" width="300" height="120" class="role-box employee-box"/>
+  <text x="600" y="565" class="role-title">Employee</text>
+  <text x="600" y="585" class="role-subtitle">Individual Contributor</text>
+  <text x="600" y="605" class="role-subtitle">• Performance tracking</text>
+  <text x="600" y="620" class="role-subtitle">• Leave applications</text>
+  <text x="600" y="635" class="role-subtitle">• Training participation</text>
+  <text x="600" y="650" class="role-subtitle">• Goal management</text>
+  
+  <!-- Workflow Arrows and Labels -->
+  
+  <!-- Admin to Manager -->
+  <path d="M 500 180 Q 350 240 250 300" class="workflow-arrow"/>
+  <text x="350" y="235" class="workflow-label">Policy Distribution</text>
+  <text x="350" y="250" class="workflow-label">& System Access</text>
+  
+  <!-- Admin to HR -->
+  <path d="M 700 180 Q 850 240 950 300" class="workflow-arrow"/>
+  <text x="850" y="235" class="workflow-label">System Configuration</text>
+  <text x="850" y="250" class="workflow-label">& Role Management</text>
+  
+  <!-- Admin to Employee -->
+  <line x1="600" y1="180" x2="600" y2="540" class="workflow-arrow"/>
+  <text x="620" y="360" class="workflow-label">Direct System</text>
+  <text x="620" y="375" class="workflow-label">Access & Policies</text>
+  
+  <!-- Manager to Employee -->
+  <path d="M 330 360 Q 450 450 450 600" class="workflow-arrow"/>
+  <text x="380" y="480" class="workflow-label">Performance</text>
+  <text x="380" y="495" class="workflow-label">Management</text>
+  
+  <!-- HR to Employee -->
+  <path d="M 870 360 Q 750 450 750 600" class="workflow-arrow"/>
+  <text x="820" y="480" class="workflow-label">Onboarding &</text>
+  <text x="820" y="495" class="workflow-label">Support</text>
+  
+  <!-- Manager to HR (Bidirectional) -->
+  <line x1="330" y1="340" x2="870" y2="340" class="workflow-arrow"/>
+  <line x1="870" y1="380" x2="330" y2="380" class="workflow-arrow"/>
+  <text x="600" y="330" class="workflow-label">Collaboration on Employee Matters</text>
+  <text x="600" y="395" class="workflow-label">Resource Sharing & Coordination</text>
+  
+  <!-- Return arrows (Employee feedback) -->
+  <path d="M 550 540 Q 400 450 190 420" class="workflow-arrow" stroke="#10b981" stroke-dasharray="5,5"/>
+  <text x="350" y="470" class="workflow-label" fill="#10b981">Feedback &</text>
+  <text x="350" y="485" class="workflow-label" fill="#10b981">Requests</text>
+  
+  <path d="M 650 540 Q 800 450 1010 420" class="workflow-arrow" stroke="#ef4444" stroke-dasharray="5,5"/>
+  <text x="850" y="470" class="workflow-label" fill="#ef4444">Support</text>
+  <text x="850" y="485" class="workflow-label" fill="#ef4444">Requests</text>
+  
+  <!-- Key Processes Boxes -->
+  <rect x="50" y="700" width="200" height="80" class="process-box"/>
+  <text x="150" y="720" class="process-text" style="font-weight: bold;">Leave Approval Process</text>
+  <text x="150" y="735" class="process-text">Employee → Manager → HR</text>
+  <text x="150" y="750" class="process-text">→ Admin (if escalated)</text>
+  <text x="150" y="765" class="process-text">Multi-level approval chain</text>
+  
+  <rect x="300" y="700" width="200" height="80" class="process-box"/>
+  <text x="400" y="720" class="process-text" style="font-weight: bold;">Onboarding Workflow</text>
+  <text x="400" y="735" class="process-text">HR → Admin → Manager</text>
+  <text x="400" y="750" class="process-text">→ Employee</text>
+  <text x="400" y="765" class="process-text">Coordinated integration</text>
+  
+  <rect x="550" y="700" width="200" height="80" class="process-box"/>
+  <text x="650" y="720" class="process-text" style="font-weight: bold;">Performance Review</text>
+  <text x="650" y="735" class="process-text">Admin → HR → Manager</text>
+  <text x="650" y="750" class="process-text">→ Employee</text>
+  <text x="650" y="765" class="process-text">Structured evaluation</text>
+  
+  <rect x="800" y="700" width="200" height="80" class="process-box"/>
+  <text x="900" y="720" class="process-text" style="font-weight: bold;">Project Management</text>
+  <text x="900" y="735" class="process-text">Manager → Employee</text>
+  <text x="900" y="750" class="process-text">→ HR → Admin</text>
+  <text x="900" y="765" class="process-text">Resource coordination</text>
+  
+  <!-- Legend -->
+  <rect x="1050" y="60" width="140" height="180" class="legend-box"/>
+  <text x="1120" y="80" class="legend-text" style="font-weight: bold;">Legend</text>
+  
+  <line x1="1060" y1="95" x2="1090" y2="95" class="workflow-arrow"/>
+  <text x="1095" y="100" class="legend-text">Direct workflow</text>
+  
+  <line x1="1060" y1="115" x2="1090" y2="115" stroke="#10b981" stroke-dasharray="5,5" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="1095" y="120" class="legend-text">Feedback flow</text>
+  
+  <rect x="1060" y="130" width="15" height="10" class="admin-box"/>
+  <text x="1080" y="140" class="legend-text">Management Admin</text>
+  
+  <rect x="1060" y="150" width="15" height="10" class="manager-box"/>
+  <text x="1080" y="160" class="legend-text">Senior Manager</text>
+  
+  <rect x="1060" y="170" width="15" height="10" class="hr-box"/>
+  <text x="1080" y="180" class="legend-text">HR Recruiter</text>
+  
+  <rect x="1060" y="190" width="15" height="10" class="employee-box"/>
+  <text x="1080" y="200" class="legend-text">Employee</text>
+  
+  <rect x="1060" y="210" width="15" height="10" class="process-box"/>
+  <text x="1080" y="220" class="legend-text">Key Processes</text>
+</svg>
