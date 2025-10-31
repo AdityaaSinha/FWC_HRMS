@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import { promisify } from "util";
+import { exec } from "child_process";
 import authRoutes from "./routes/authRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -22,6 +24,9 @@ import hiringWorkflowRoutes from "./routes/hiringWorkflowRoutes.js";
 import departmentRoutes from "./routes/departmentRoutes.js";
 
 dotenv.config();
+
+// Create async version of exec
+const execAsync = promisify(exec);
 
 // Initialize Prisma with in-memory database for Free plan
 const prisma = new PrismaClient({
@@ -59,30 +64,103 @@ async function initializeDatabase() {
       console.log("🔄 Initializing in-memory database...");
       
       // First, push schema to create tables (better for in-memory DB)
-      console.log("📋 Pushing database schema...");
-      const { execSync } = await import('child_process');
-      execSync('npx prisma db push --force-reset', { stdio: 'inherit' });
+      console.log("📊 Pushing database schema...");
+      await execAsync('npx prisma db push --force-reset');
       console.log("✅ Database schema pushed");
       
-      // Run migrations
-      await prisma.$executeRaw`PRAGMA foreign_keys = ON`;
+      // Enable foreign keys for SQLite
+      await prisma.$executeRaw`PRAGMA foreign_keys = ON;`;
+      
+      // Ensure tables exist with explicit creation (fallback for in-memory DB)
+      console.log("🔧 Ensuring tables exist...");
+      try {
+        // Create roles table if it doesn't exist
+        await prisma.$executeRaw`
+          CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            description TEXT,
+            color TEXT DEFAULT 'gray',
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'active'
+          );
+        `;
+        
+        // Create permissions table if it doesn't exist
+        await prisma.$executeRaw`
+          CREATE TABLE IF NOT EXISTS permissions (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            description TEXT
+          );
+        `;
+        
+        // Create User table if it doesn't exist
+        await prisma.$executeRaw`
+          CREATE TABLE IF NOT EXISTS User (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            employeeId TEXT UNIQUE,
+            name TEXT NOT NULL,
+            password TEXT NOT NULL,
+            department TEXT,
+            avatar TEXT,
+            joinDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+            roleId INTEGER NOT NULL,
+            twoFactorEnabled BOOLEAN DEFAULT 0,
+            twoFactorSecret TEXT,
+            twoFactorMethod TEXT,
+            backupCodes TEXT,
+            twoFactorSetupDate DATETIME,
+            twoFactorLastUsed DATETIME,
+            phone TEXT,
+            FOREIGN KEY (roleId) REFERENCES roles(id)
+          );
+        `;
+        
+        console.log("✅ Tables ensured to exist");
+      } catch (tableError) {
+        console.log("⚠️ Table creation warning (may already exist):", tableError.message);
+      }
+      
+      // Create default roles first
+      console.log("🔑 Creating default roles...");
+      const roles = [
+        { name: 'ADMIN', description: 'System Administrator', color: 'red' },
+        { name: 'HR', description: 'Human Resources', color: 'blue' },
+        { name: 'MANAGER', description: 'Department Manager', color: 'green' },
+        { name: 'EMPLOYEE', description: 'Regular Employee', color: 'gray' }
+      ];
+      
+      for (const roleData of roles) {
+        await prisma.Role.upsert({
+          where: { name: roleData.name },
+          update: {},
+          create: roleData
+        });
+      }
+      console.log("✅ Default roles created");
+      
+      // Get admin role ID
+      const adminRole = await prisma.Role.findUnique({
+        where: { name: 'ADMIN' }
+      });
       
       // Create basic admin user if not exists
-      const adminExists = await prisma.user.findFirst({
+      const adminExists = await prisma.User.findFirst({
         where: { email: 'admin@hrms.com' }
       });
       
-      if (!adminExists) {
+      if (!adminExists && adminRole) {
         console.log("👤 Creating default admin user...");
-        await prisma.user.create({
+        await prisma.User.create({
           data: {
             email: 'admin@hrms.com',
             password: '$2b$10$rQZ9QmjytWIHq8fJvXNUyeJ.Hn8pGpxRjGJVwV8FGV4.QmjytWIHq8', // 'admin123'
-            firstName: 'Admin',
-            lastName: 'User',
-            role: 'ADMIN',
-            isActive: true,
-            isEmailVerified: true
+            name: 'Admin User',
+            roleId: adminRole.id,
+            department: 'IT'
           }
         });
         console.log("✅ Default admin user created");
