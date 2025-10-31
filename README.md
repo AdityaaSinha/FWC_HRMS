@@ -105,10 +105,12 @@ FWC_HRMS/
 
 ### Default Login Credentials
 ```
-Admin: admin@company.com / admin123
-HR: hr@company.com / hr123
-Manager: manager@company.com / manager123
-Employee: employee@company.com / employee123
+User(Role) : Login ID / Password
+
+Admin: a@a.com / 12
+HR: h@h.com / 12
+Manager: m@m.com / 12
+Employee: e@e.com / 12
 ```
 
 ## 🛠️ Technology Stack
