@@ -1,5 +1,5 @@
 // API configuration and HTTP client
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'https://hrms-backend-a4qf.onrender.com/api';
 
 // Get auth token from localStorage
 const getAuthToken = () => {
