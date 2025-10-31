@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './pages/LoginPage';
 import RoleLoginPage from "./pages/RoleLoginPage";
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 // Admin
 import AdminLayout from './layouts/AdminLayout';
@@ -12,6 +13,9 @@ import { flatAdminRoutes } from './pages/admin/adminRoutes';
 // --- REMOVED flatHRRoutes ---
 import { hrRoutes } from './pages/hr/hrRoutes'; // <-- Import the NESTED routes
 import HRLayout from './layouts/HRLayout';
+import TestJobsDashboard from './pages/hr/TestJobsDashboard'; // TEMPORARY FOR TESTING
+import TestAuth from './pages/TestAuth';
+import SimpleTest from './pages/SimpleTest';
 
 // Manager
 import ManagerLayout from './layouts/ManagerLayout';
@@ -21,37 +25,52 @@ import { flatManagerRoutes } from './pages/manager/managerRoutes';
 import EmployeeLayout from './layouts/EmployeeLayout';
 import { flatEmployeeRoutes } from './pages/employee/employeeRoutes';
 
+// Public Components
+import PublicEmployeeDirectory from './pages/PublicEmployeeDirectory';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = !!localStorage.getItem('token'); // check token
   return isLoggedIn ? children : <Navigate to="/" replace />;
 };
 
-//
-// --- ADD THIS HELPER FUNCTION ---
-//
 // This function correctly builds the nested <Route> elements
 // from your nested hrRoutes array.
 function buildRoutes(routes) {
-  return routes.flatMap((mod) =>
-    mod.pages.map((page) => (
-      <Route
-        key={page.path}
-        path={page.path}
-        element={<page.component />}
-      >
-        {/* If the page has children, render them as nested Routes! */}
-        {page.children && page.children.map(child => (
+  return routes.flatMap((mod) => {
+    return mod.pages.map((page) => {
+      // If the page has children, create a parent route with nested routes
+      if (page.children && page.children.length > 0) {
+        return (
           <Route
-            key={child.path || 'index'} // Use 'index' as key if it's an index route
-            index={child.index}         // This makes it the default child
-            path={child.path}
-            element={<child.component />}
+            key={page.path}
+            path={page.path}
+            element={<page.component />}
+          >
+            {page.children.map(child => {
+              return (
+                <Route
+                  key={child.path || 'index'} // Use 'index' as key if it's an index route
+                  index={child.index}         // This makes it the default child
+                  path={child.path}
+                  element={<child.component />}
+                />
+              );
+            })}
+          </Route>
+        );
+      } else {
+        // If the page has no children, create a simple route
+        return (
+          <Route
+            key={page.path}
+            path={page.path}
+            element={<page.component />}
           />
-        ))}
-      </Route>
-    ))
-  );
+        );
+      }
+    });
+  });
 }
 // --- END OF HELPER FUNCTION ---
 
@@ -59,11 +78,15 @@ function buildRoutes(routes) {
 export default function App() {
   return (
     <CurrencyProvider>
-      <Router>
+      <ToastProvider>
+        <Router>
         <Routes>
           {/* Login */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/login/:role" element={<RoleLoginPage />} />
+
+          {/* Public Employee Directory */}
+          <Route path="/directory" element={<PublicEmployeeDirectory />} />
 
           {/* Admin Routes (Unchanged) */}
           <Route
@@ -81,17 +104,22 @@ export default function App() {
             )}
           </Route>
 
-          {/* --- HR ROUTES (THIS IS THE FIX) --- */}
+          {/* TEMPORARY: Test route to verify routing works */}
+          <Route path="/test" element={<div>TEST ROUTE WORKS!</div>} />
+          <Route path="/testauth" element={<TestAuth />} />
+          <Route path="/simple" element={<SimpleTest />} />
+          
+          {/* --- HR ROUTES --- */}
           <Route
             path="/hr/*"
             element={
               <HRLayout />
             }
           >
-            {/* We now call buildRoutes instead of mapping flatHRRoutes */}
+            {/* Enable the proper HR routes */}
             {buildRoutes(hrRoutes)}
           </Route>
-          {/* --- END OF HR ROUTES FIX --- */}
+          {/* --- END OF HR ROUTES --- */}
 
           {/* Manager Routes (Unchanged) */}
           <Route
@@ -128,7 +156,8 @@ export default function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Router>
+        </Router>
+      </ToastProvider>
     </CurrencyProvider>
   );
 }

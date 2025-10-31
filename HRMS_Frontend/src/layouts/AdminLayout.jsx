@@ -9,6 +9,27 @@ import {
   PanelRightClose,
 } from 'lucide-react';
 import { adminRoutes } from '../pages/admin/adminRoutes';
+import { generateSmartPravavatarUrl } from '../utils/pravavatarUtils';
+
+// Local Avatar Component
+const AvatarWithFallback = ({ identifier, name, size = 32, className = "" }) => {
+  const user = {
+    id: identifier,
+    name: name || 'Admin User',
+    email: identifier
+  };
+  
+  const avatarSrc = generateSmartPravavatarUrl(user, size);
+
+  return (
+    <img
+      src={avatarSrc}
+      alt={name || 'User Avatar'}
+      className={`rounded-full border border-gray-600 ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
+};
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -187,9 +208,12 @@ export default function AdminLayout() {
         >
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-3 text-gray-400 overflow-hidden">
-              <div className="w-8 h-8 rounded-full border border-gray-600 bg-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                {userInitials}
-              </div>
+              <AvatarWithFallback
+                identifier={userEmployeeId || userEmail}
+                name={userName}
+                size={32}
+                className="w-8 h-8 flex-shrink-0"
+              />
               <div className="overflow-hidden">
                 <p className="text-sm font-medium text-white truncate">{userName}</p>
                 <p className="text-xs text-gray-500 truncate">ID: {userEmployeeId}</p>
@@ -220,9 +244,12 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full border border-gray-600 bg-indigo-600 flex items-center justify-center text-sm font-bold">
-              {userInitials}
-            </div>
+            <AvatarWithFallback
+              identifier={userEmployeeId || userEmail}
+              name={userName}
+              size={36}
+              className="w-9 h-9"
+            />
           </div>
         </header>
 

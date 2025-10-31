@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Login</title>
+</head>
+<body>
+    <h1>Auto Login for HR User</h1>
+    <div id="status">Logging in...</div>
+    
+    <script>
+        async function autoLogin() {
+            try {
+                console.log('🔍 Auto-login: Starting login process...');
+                
+                const response = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'h@h.com',
+                        password: '12'
+                    }),
+                });
+
+                const data = await response.json();
+                console.log('🔍 Auto-login: Login response:', data);
+
+                if (response.ok) {
+                    // Set localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('role', 'HR');
+                    localStorage.setItem('userName', 'Sarah Johnson');
+                    
+                    document.getElementById('status').innerHTML = `
+                        <p style="color: green;">✅ Login successful!</p>
+                        <p>Token: ${data.token.substring(0, 50)}...</p>
+                        <p>Role: HR</p>
+                        <p>User: Sarah Johnson</p>
+                        <p><a href="/hr/jobs">Go to HR Jobs Dashboard</a></p>
+                    `;
+                    
+                    console.log('🔍 Auto-login: Authentication data set in localStorage');
+                    
+                    // Auto-redirect after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/hr/jobs';
+                    }, 2000);
+                } else {
+                    document.getElementById('status').innerHTML = `<p style="color: red;">❌ Login failed: ${data.message}</p>`;
+                }
+            } catch (error) {
+                console.error('🔍 Auto-login: Error:', error);
+                document.getElementById('status').innerHTML = `<p style="color: red;">❌ Login error: ${error.message}</p>`;
+            }
+        }
+
+        // Start auto-login when page loads
+        autoLogin();
+    </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Public Audit Logs API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #1a4d1a;
+            border-color: #2d7d2d;
+        }
+        .error {
+            background-color: #4d1a1a;
+            border-color: #7d2d2d;
+        }
+        .loading {
+            background-color: #1a1a4d;
+            border-color: #2d2d7d;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        pre {
+            background-color: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .endpoint {
+            font-family: monospace;
+            background-color: #333;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .log-entry {
+            background-color: #333;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .log-entry.error {
+            border-left-color: #f44336;
+        }
+        .log-entry.warning {
+            border-left-color: #ff9800;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 Public Audit Logs API Test (No Authentication Required)</h1>
+        <p>This page tests the public audit logs API endpoints that don't require authentication.</p>
+        
+        <div class="test-section">
+            <h3>Test Controls</h3>
+            <button onclick="testAllEndpoints()">🚀 Test All Endpoints</button>
+            <button onclick="testAuditLogs()">📋 Test Audit Logs</button>
+            <button onclick="testAuditStats()">📊 Test Audit Stats</button>
+            <button onclick="testSpecificLog()">🔍 Test Specific Log</button>
+            <button onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api/public';
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                message,
+                type
+            };
+            testResults.push(logEntry);
+            updateDisplay();
+            console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+        }
+
+        function updateDisplay() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = testResults.map(entry => `
+                <div class="log-entry ${entry.type}">
+                    <span class="timestamp">[${entry.timestamp}]</span>
+                    <strong>${entry.type.toUpperCase()}:</strong> ${entry.message}
+                </div>
+            `).join('');
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults = [];
+            updateDisplay();
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                log(`🌐 Making request to: ${url}`, 'info');
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // NO Authorization header - this is public!
+                    },
+                    ...options
+                });
+
+                const data = await response.json();
+                
+                log(`📥 Response Status: ${response.status} ${response.statusText}`, 
+                    response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    log(`✅ Success: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    log(`❌ Error: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+                
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                log(`💥 Network Error: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testAuditLogs() {
+            log('🔍 Testing Public Audit Logs API...', 'info');
+            
+            // Test basic audit logs
+            const result1 = await makeRequest(`${API_BASE}/audit-logs`);
+            
+            // Test with pagination
+            const result2 = await makeRequest(`${API_BASE}/audit-logs?page=1&limit=5`);
+            
+            // Test with filters
+            const result3 = await makeRequest(`${API_BASE}/audit-logs?severity=HIGH&category=AUTHENTICATION`);
+            
+            // Test with search
+            const result4 = await makeRequest(`${API_BASE}/audit-logs?search=login`);
+            
+            if (result1.success) {
+                log(`📊 Found ${result1.data.data?.length || 0} audit logs`, 'success');
+                if (result1.data.data && result1.data.data.length > 0) {
+                    const firstLog = result1.data.data[0];
+                    log(`📝 Sample log: ${firstLog.action} by ${firstLog.user?.name || 'System'} at ${firstLog.timestamp}`, 'info');
+                }
+            }
+        }
+
+        async function testAuditStats() {
+            log('📊 Testing Public Audit Stats API...', 'info');
+            
+            const result = await makeRequest(`${API_BASE}/audit-logs/stats`);
+            
+            if (result.success && result.data.data) {
+                const stats = result.data.data;
+                log(`📈 Stats Summary:`, 'success');
+                log(`   • Total Logs: ${stats.totalLogs || 0}`, 'info');
+                log(`   • Today's Count: ${stats.todayCount || 0}`, 'info');
+                log(`   • Critical Events: ${stats.severityCounts?.CRITICAL || 0}`, 'info');
+                log(`   • Success Rate: ${stats.statusCounts?.SUCCESS ? Math.round((stats.statusCounts.SUCCESS / stats.totalLogs) * 100) : 0}%`, 'info');
+            }
+        }
+
+        async function testSpecificLog() {
+            log('🔍 Testing Specific Log API...', 'info');
+            
+            // First get a list to find a valid ID
+            const listResult = await makeRequest(`${API_BASE}/audit-logs?limit=1`);
+            
+            if (listResult.success && listResult.data.data && listResult.data.data.length > 0) {
+                const logId = listResult.data.data[0].id;
+                log(`🎯 Testing with log ID: ${logId}`, 'info');
+                
+                const result = await makeRequest(`${API_BASE}/audit-logs/${logId}`);
+                
+                if (result.success) {
+                    const logData = result.data.data;
+                    log(`✅ Retrieved specific log: ${logData.action} (${logData.severity})`, 'success');
+                }
+            } else {
+                log('⚠️ No logs available to test specific log retrieval', 'warning');
+            }
+        }
+
+        async function testAllEndpoints() {
+            log('🚀 Starting comprehensive public API test...', 'info');
+            log('=' .repeat(50), 'info');
+            
+            await testAuditLogs();
+            log('-'.repeat(30), 'info');
+            
+            await testAuditStats();
+            log('-'.repeat(30), 'info');
+            
+            await testSpecificLog();
+            log('-'.repeat(30), 'info');
+            
+            log('✅ All tests completed!', 'success');
+            log('=' .repeat(50), 'info');
+        }
+
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            log('🌟 Public Audit Logs API Test Page Loaded', 'info');
+            log('💡 Click "Test All Endpoints" to start testing', 'info');
+            log('🔓 No authentication required for these endpoints!', 'success');
+        });
+    </script>
+</body>
+</html>

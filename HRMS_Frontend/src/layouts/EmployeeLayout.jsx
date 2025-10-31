@@ -1,16 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, X, ChevronDown } from 'lucide-react';
 import { employeeRoutes } from '../pages/employee/employeeRoutes';
+import Avatar from '../components/common/Avatar';
+import { generateSmartPravavatarUrl } from '../utils/pravavatarUtils';
+import { UserProvider } from '../contexts/UserContext';
 
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [collapsedModules, setCollapsedModules] = useState({});
+  
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  // Fetch logged-in user info
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoadingUser(true);
+      let token = localStorage.getItem('token');
+      
+      // Demo auto-login for Employee Directory
+      if (!token) {
+        try {
+          // Auto-login with a demo employee account
+          const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'john.doe@company.com', password: '12' })
+          });
+          
+          if (loginResponse.ok) {
+            const loginData = await loginResponse.json();
+            token = loginData.token;
+            localStorage.setItem('token', token);
+            localStorage.setItem('role', loginData.user.role);
+            localStorage.setItem('userName', loginData.user.name);
+          } else {
+            navigate('/');
+            return;
+          }
+        } catch (error) {
+          console.error('Demo auto-login failed:', error);
+          navigate('/');
+          return;
+        }
+      }
+
+      try {
+        const response = await fetch('http://localhost:3001/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.role !== 'EMPLOYEE') {
+            localStorage.removeItem('token');
+            navigate('/');
+            return;
+          }
+          setCurrentUser(userData);
+        } else {
+          if (response.status === 401 || response.status === 404) {
+            localStorage.removeItem('token');
+            navigate('/');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        localStorage.removeItem('token');
+        navigate('/');
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
 
   const handleLogoutConfirm = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('userName');
+    setCurrentUser(null);
     setShowLogoutModal(false);
     navigate('/');
   };
@@ -27,8 +100,24 @@ export default function EmployeeLayout() {
 
   return (
     <div className="flex h-screen bg-[#11131A] text-white">
-      {/* Sidebar */}
-      <aside className="w-72 flex flex-col bg-[#1B1E2B] border-r border-gray-800 shadow-lg">
+      {/* Loading state */}
+      {loadingUser ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading user data...</p>
+          </div>
+        </div>
+      ) : !currentUser ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="text-center">
+            <p className="text-gray-400">Unable to load user data</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Sidebar */}
+          <aside className="w-72 flex flex-col bg-[#1B1E2B] border-r border-gray-800 shadow-lg">
         {/* Logo */}
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-xl font-bold text-indigo-400 tracking-wide">Employee Portal</h1>
@@ -90,12 +179,13 @@ export default function EmployeeLayout() {
         {/* Footer */}
         <div className="p-4 border-t border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3 text-gray-400">
-            <img
-              src="https://i.pravatar.cc/32"
-              alt="Employee"
-              className="w-8 h-8 rounded-full border border-gray-700"
+            <Avatar
+              user={currentUser}
+              name={currentUser.name}
+              size={32}
+              className="border border-gray-700"
             />
-            <span className="text-sm font-medium">Employee</span>
+            <span className="text-sm font-medium">{currentUser.name}</span>
           </div>
           <button
             onClick={() => setShowLogoutModal(true)}
@@ -112,11 +202,14 @@ export default function EmployeeLayout() {
         {/* Header */}
         <header className="bg-[#1B1E2B] border-b border-gray-800 p-4 flex justify-between items-center shadow-md">
           <h2 className="text-lg font-semibold text-gray-200">Employee Dashboard</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">Welcome back!</span>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <span className="text-sm text-gray-400">Welcome back, {currentUser.name}!</span>
+              <div className="text-xs text-indigo-400 font-medium">ID: {currentUser.employeeId}</div>
+            </div>
             <img
-              src="https://i.pravatar.cc/35"
-              alt="Employee Avatar"
+              src={generateSmartPravavatarUrl(currentUser, 32)}
+              alt={currentUser.name}
               className="w-8 h-8 rounded-full border border-gray-700"
             />
           </div>
@@ -124,7 +217,9 @@ export default function EmployeeLayout() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-[#11131A] p-6">
-          <Outlet />
+          <UserProvider user={currentUser} loading={loadingUser} error={null}>
+            <Outlet />
+          </UserProvider>
         </div>
       </main>
 
@@ -160,6 +255,8 @@ export default function EmployeeLayout() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

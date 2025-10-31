@@ -8,6 +8,7 @@ import {
   AlertCircle,
   X,
   Eye,
+  EyeOff,
   Trash2, // Note: Trash2 icon isn't used in the history, but kept in imports
   RefreshCw,
   FileSpreadsheet,
@@ -29,6 +30,7 @@ const ManualUserForm = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState({ message: '', type: '' }); // 'success' or 'error'
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -110,15 +112,24 @@ const ManualUserForm = () => {
           className="w-full px-3 py-2 bg-[#1E2132] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
           required
         />
-        <input
-          type="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          placeholder="Initial Password (min. 6 chars)"
-          className="w-full px-3 py-2 bg-[#1E2132] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
-          required
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Initial Password (min. 6 chars)"
+            className="w-full px-3 py-2 pr-10 bg-[#1E2132] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+            required
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
             type="text"
@@ -207,19 +218,25 @@ const BulkUserImportExport = () => {
       ]);
 
       if (importRes.status === 'fulfilled' && importRes.value.ok) {
-        setImportHistory(await importRes.value.json());
+        const importData = await importRes.value.json();
+        setImportHistory(importData); // API now returns array directly
       } else {
         console.error("Failed to fetch import history");
+        setImportHistory([]);
       }
 
       if (exportRes.status === 'fulfilled' && exportRes.value.ok) {
-        setExportHistory(await exportRes.value.json());
+        const exportData = await exportRes.value.json();
+        setExportHistory(exportData); // API now returns array directly
       } else {
         console.error("Failed to fetch export history");
+        setExportHistory([]);
       }
       
     } catch (error) {
       console.error("Failed to fetch history:", error);
+      setImportHistory([]);
+      setExportHistory([]);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -697,7 +714,55 @@ const BulkUserImportExport = () => {
               </table>
             </div>
           </div>
-          {/* ... (Export history table, still uses mock data) ... */}
+          
+          {/* Export History Table */}
+          <div className="bg-[#272B3F] rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold mb-4">Export History</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-gray-600">
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">File Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">Format</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">Records</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">Exported By</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-300">Filters</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoadingHistory ? (
+                     <tr><td colSpan="6" className="text-center py-4 text-gray-400">Loading history...</td></tr>
+                  ) : exportHistory.length === 0 ? (
+                     <tr><td colSpan="6" className="text-center py-4 text-gray-400">No export history found.</td></tr>
+                  ) : (
+                    exportHistory.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-700 hover:bg-[#1E2132]">
+                        <td className="py-3 px-4 text-white truncate max-w-xs">{item.fileName}</td>
+                        <td className="py-3 px-4 text-gray-400">{item.date}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-900 text-blue-300">
+                            {item.format}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-400">{item.records}</td>
+                        <td className="py-3 px-4 text-gray-400">{item.exportedBy}</td>
+                        <td className="py-3 px-4 text-gray-400">
+                          {item.filters ? (
+                            <span className="text-xs">
+                              {Object.entries(item.filters).filter(([key, value]) => value).map(([key, value]) => `${key}: ${value}`).join(', ') || 'None'}
+                            </span>
+                          ) : (
+                            'None'
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

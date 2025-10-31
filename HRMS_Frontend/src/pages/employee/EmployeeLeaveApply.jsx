@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, FileText, Send } from 'lucide-react';
 import Card from '../../components/Card';
+import leaveService from '../../services/leaveService';
 
 export default function EmployeeLeaveApply({ showTitle = true }) {
   const [formData, setFormData] = useState({
@@ -9,17 +10,23 @@ export default function EmployeeLeaveApply({ showTitle = true }) {
     endDate: '',
     reason: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (error) {
+      setError(null);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate required fields
     if (!formData.leaveType || !formData.startDate || !formData.endDate) {
-      alert('Please fill in all required fields');
+      setError('Please fill in all required fields');
       return;
     }
     
@@ -28,7 +35,7 @@ export default function EmployeeLeaveApply({ showTitle = true }) {
     const endDate = new Date(formData.endDate);
     
     if (endDate < startDate) {
-      alert('End date cannot be before start date');
+      setError('End date cannot be before start date');
       return;
     }
     
@@ -36,23 +43,44 @@ export default function EmployeeLeaveApply({ showTitle = true }) {
     const timeDiff = endDate.getTime() - startDate.getTime();
     const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
     
-    // Handle form submission
-    console.log('Leave application submitted:', {
-      ...formData,
-      duration: daysDiff,
-      submittedAt: new Date().toISOString()
-    });
+    setLoading(true);
+    setError(null);
     
-    // Show success message
-    alert(`Leave request submitted successfully! Duration: ${daysDiff} day(s)`);
-    
-    // Reset form
-    setFormData({
-      leaveType: '',
-      startDate: '',
-      endDate: '',
-      reason: ''
-    });
+    try {
+      // Map form leave types to API enum values
+      const leaveTypeMapping = {
+        'vacation': 'ANNUAL',
+        'sick': 'SICK',
+        'personal': 'PERSONAL',
+        'emergency': 'EMERGENCY',
+        'maternity': 'MATERNITY'
+      };
+      
+      const leaveRequestData = {
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        reason: formData.reason,
+        leaveType: leaveTypeMapping[formData.leaveType] || 'ANNUAL'
+      };
+      
+      await leaveService.createLeaveRequest(leaveRequestData);
+      
+      // Show success message
+      alert(`Leave request submitted successfully! Duration: ${daysDiff} day(s)`);
+      
+      // Reset form
+      setFormData({
+        leaveType: '',
+        startDate: '',
+        endDate: '',
+        reason: ''
+      });
+    } catch (error) {
+      console.error('Error submitting leave request:', error);
+      setError(error.message || 'Failed to submit leave request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,6 +100,13 @@ export default function EmployeeLeaveApply({ showTitle = true }) {
             Submit your leave request with all necessary details
           </p>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+          </div>
+        )}
 
         {/* Form Section */}
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -157,10 +192,24 @@ export default function EmployeeLeaveApply({ showTitle = true }) {
               </button>
               <button
                 type="submit"
-                className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                disabled={loading}
+                className={`flex items-center justify-center gap-2 px-8 py-3 rounded-xl transition-all duration-200 font-medium shadow-lg ${
+                  loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl transform hover:-translate-y-0.5'
+                } text-white`}
               >
-                <Send className="w-4 h-4" />
-                Submit Request
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Submit Request
+                  </>
+                )}
               </button>
             </div>
           </div>

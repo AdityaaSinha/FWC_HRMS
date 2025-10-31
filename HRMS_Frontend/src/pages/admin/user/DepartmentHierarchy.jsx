@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Filter, Plus, Edit, Trash2, Users, Building, ChevronDown, ChevronRight, MoreVertical, Move, Eye, Settings, Download, Upload, RefreshCw } from 'lucide-react';
+import { DEPARTMENTS } from '../../../utils/departmentData';
 
 const DepartmentHierarchy = () => {
   const [activeTab, setActiveTab] = useState('hierarchy');
@@ -11,208 +12,22 @@ const DepartmentHierarchy = () => {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [viewMode, setViewMode] = useState('tree'); // tree, list, chart
 
-  // Mock department hierarchy data
-  const mockDepartments = [
-    {
-      id: '1',
-      name: 'Executive',
-      code: 'EXEC',
-      manager: 'John CEO',
-      managerId: 'emp001',
-      employeeCount: 3,
-      level: 0,
-      parentId: null,
-      description: 'Executive leadership team',
-      budget: 500000,
-      location: 'HQ - Floor 10',
-      status: 'active',
-      children: [
-        {
-          id: '2',
-          name: 'Engineering',
-          code: 'ENG',
-          manager: 'Sarah Tech',
-          managerId: 'emp002',
-          employeeCount: 45,
-          level: 1,
-          parentId: '1',
-          description: 'Software development and technical operations',
-          budget: 2500000,
-          location: 'HQ - Floor 3-5',
-          status: 'active',
-          children: [
-            {
-              id: '4',
-              name: 'Frontend Development',
-              code: 'FE',
-              manager: 'Mike React',
-              managerId: 'emp004',
-              employeeCount: 15,
-              level: 2,
-              parentId: '2',
-              description: 'User interface and experience development',
-              budget: 800000,
-              location: 'HQ - Floor 3',
-              status: 'active',
-              children: []
-            },
-            {
-              id: '5',
-              name: 'Backend Development',
-              code: 'BE',
-              manager: 'Lisa Node',
-              managerId: 'emp005',
-              employeeCount: 18,
-              level: 2,
-              parentId: '2',
-              description: 'Server-side development and APIs',
-              budget: 900000,
-              location: 'HQ - Floor 4',
-              status: 'active',
-              children: []
-            },
-            {
-              id: '6',
-              name: 'DevOps',
-              code: 'DEVOPS',
-              manager: 'Tom Cloud',
-              managerId: 'emp006',
-              employeeCount: 8,
-              level: 2,
-              parentId: '2',
-              description: 'Infrastructure and deployment automation',
-              budget: 600000,
-              location: 'HQ - Floor 5',
-              status: 'active',
-              children: []
-            },
-            {
-              id: '7',
-              name: 'QA Testing',
-              code: 'QA',
-              manager: 'Anna Test',
-              managerId: 'emp007',
-              employeeCount: 4,
-              level: 2,
-              parentId: '2',
-              description: 'Quality assurance and testing',
-              budget: 200000,
-              location: 'HQ - Floor 3',
-              status: 'active',
-              children: []
-            }
-          ]
-        },
-        {
-          id: '3',
-          name: 'Sales & Marketing',
-          code: 'SM',
-          manager: 'David Sales',
-          managerId: 'emp003',
-          employeeCount: 28,
-          level: 1,
-          parentId: '1',
-          description: 'Revenue generation and market expansion',
-          budget: 1800000,
-          location: 'HQ - Floor 6-7',
-          status: 'active',
-          children: [
-            {
-              id: '8',
-              name: 'Sales',
-              code: 'SALES',
-              manager: 'Emma Sell',
-              managerId: 'emp008',
-              employeeCount: 20,
-              level: 2,
-              parentId: '3',
-              description: 'Direct sales and client acquisition',
-              budget: 1200000,
-              location: 'HQ - Floor 6',
-              status: 'active',
-              children: []
-            },
-            {
-              id: '9',
-              name: 'Marketing',
-              code: 'MKT',
-              manager: 'Chris Brand',
-              managerId: 'emp009',
-              employeeCount: 8,
-              level: 2,
-              parentId: '3',
-              description: 'Brand management and digital marketing',
-              budget: 600000,
-              location: 'HQ - Floor 7',
-              status: 'active',
-              children: []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: '10',
-      name: 'Operations',
-      code: 'OPS',
-      manager: 'Rachel Ops',
-      managerId: 'emp010',
-      employeeCount: 22,
-      level: 0,
-      parentId: null,
-      description: 'Business operations and support functions',
-      budget: 1200000,
-      location: 'HQ - Floor 8-9',
-      status: 'active',
-      children: [
-        {
-          id: '11',
-          name: 'Human Resources',
-          code: 'HR',
-          manager: 'Jennifer People',
-          managerId: 'emp011',
-          employeeCount: 8,
-          level: 1,
-          parentId: '10',
-          description: 'Employee relations and talent management',
-          budget: 400000,
-          location: 'HQ - Floor 8',
-          status: 'active',
-          children: []
-        },
-        {
-          id: '12',
-          name: 'Finance',
-          code: 'FIN',
-          manager: 'Robert Money',
-          managerId: 'emp012',
-          employeeCount: 10,
-          level: 1,
-          parentId: '10',
-          description: 'Financial planning and accounting',
-          budget: 500000,
-          location: 'HQ - Floor 9',
-          status: 'active',
-          children: []
-        },
-        {
-          id: '13',
-          name: 'IT Support',
-          code: 'IT',
-          manager: 'Kevin Fix',
-          managerId: 'emp013',
-          employeeCount: 4,
-          level: 1,
-          parentId: '10',
-          description: 'Technical support and infrastructure',
-          budget: 300000,
-          location: 'HQ - Floor 8',
-          status: 'active',
-          children: []
-        }
-      ]
-    }
-  ];
+  // Convert centralized department data to hierarchical structure
+  const mockDepartments = DEPARTMENTS.map((dept, index) => ({
+    id: dept.id,
+    name: dept.name,
+    code: dept.code,
+    manager: dept.headOfDepartment,
+    managerId: `emp${String(index + 1).padStart(3, '0')}`,
+    employeeCount: 0, // Will be calculated dynamically
+    level: 0,
+    parentId: null,
+    description: dept.description,
+    budget: dept.budget,
+    location: dept.location,
+    status: 'active',
+    children: []
+  }));
 
   // Mock statistics
   const mockStats = {

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Auth Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .status {
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .success { background-color: #0f5132; border-color: #198754; }
+        .error { background-color: #842029; border-color: #dc3545; }
+        .info { background-color: #055160; border-color: #0dcaf0; }
+        button {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0b5ed7; }
+        pre {
+            background-color: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Authentication Status Check</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="checkAuthStatus()">Check Auth Status</button>
+    <button onclick="clearToken()">Clear Token</button>
+    <button onclick="goToLogin()">Go to Login Test</button>
+    <button onclick="goToAuditLogs()">Go to Audit Logs</button>
+
+    <script>
+        function checkAuthStatus() {
+            const statusDiv = document.getElementById('status');
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        <h3>❌ No Token Found</h3>
+                        <p>No authentication token found in localStorage.</p>
+                        <p>Please login first using the login test page.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Try to decode JWT token (basic check)
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const now = Date.now() / 1000;
+                const isExpired = payload.exp < now;
+                
+                statusDiv.innerHTML = `
+                    <div class="status ${isExpired ? 'error' : 'success'}">
+                        <h3>${isExpired ? '⚠️ Token Expired' : '✅ Valid Token Found'}</h3>
+                        <p><strong>User ID:</strong> ${payload.userId}</p>
+                        <p><strong>Role:</strong> ${payload.role}</p>
+                        <p><strong>Email:</strong> ${payload.email}</p>
+                        <p><strong>Expires:</strong> ${new Date(payload.exp * 1000).toLocaleString()}</p>
+                        <p><strong>Status:</strong> ${isExpired ? 'EXPIRED' : 'VALID'}</p>
+                        <details>
+                            <summary>Raw Token (click to expand)</summary>
+                            <pre>${token}</pre>
+                        </details>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        <h3>❌ Invalid Token</h3>
+                        <p>Token exists but appears to be malformed.</p>
+                        <p>Error: ${error.message}</p>
+                        <details>
+                            <summary>Raw Token (click to expand)</summary>
+                            <pre>${token}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('token');
+            document.getElementById('status').innerHTML = `
+                <div class="status info">
+                    <h3>🗑️ Token Cleared</h3>
+                    <p>Authentication token has been removed from localStorage.</p>
+                </div>
+            `;
+        }
+
+        function goToLogin() {
+            window.location.href = '/login-test.html';
+        }
+
+        function goToAuditLogs() {
+            window.location.href = '/admin/system/audit-logs';
+        }
+
+        // Auto-check on page load
+        window.onload = checkAuthStatus;
+    </script>
+</body>
+</html>

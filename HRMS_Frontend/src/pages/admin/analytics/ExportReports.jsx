@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getDepartmentNames } from '../../../utils/departmentData';
 import {
   FileText,
   Download,
@@ -116,7 +117,7 @@ const ExportReports = () => {
     }
   ];
 
-  const departments = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Operations', 'Legal', 'IT Support'];
+  const departments = getDepartmentNames();
 
   const StatCard = ({ title, value, icon: Icon, color = 'indigo' }) => {
     const colorClasses = {

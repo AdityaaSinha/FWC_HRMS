@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #4f46e5; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #3730a3; }
+        .output { background: #2d2d2d; padding: 15px; border-radius: 5px; margin: 10px 0; white-space: pre-wrap; font-family: monospace; }
+        .error { color: #ef4444; }
+        .success { color: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Audit Logs API Test</h1>
+        
+        <button onclick="checkAuth()">Check Auth Token</button>
+        <button onclick="testAuditLogsAPI()">Test Audit Logs API</button>
+        <button onclick="testDirectFetch()">Test Direct Fetch</button>
+        <button onclick="clearOutput()">Clear Output</button>
+        
+        <div id="output" class="output">Ready to test...</div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = 'Output cleared...';
+        }
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    log(`✅ Token found: ${JSON.stringify(payload, null, 2)}`, 'success');
+                } catch (e) {
+                    log(`❌ Invalid token format: ${e.message}`, 'error');
+                }
+            } else {
+                log('❌ No token found in localStorage', 'error');
+            }
+        }
+
+        async function testAuditLogsAPI() {
+            log('🔍 Testing audit logs API...');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('❌ No token found. Please login first.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3001/api/audit-logs', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`📡 Response status: ${response.status} ${response.statusText}`);
+                
+                const responseText = await response.text();
+                log(`📄 Response body: ${responseText}`);
+
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        log(`✅ Success! Data: ${JSON.stringify(data, null, 2)}`, 'success');
+                    } catch (e) {
+                        log(`⚠️ Response is not JSON: ${responseText}`, 'error');
+                    }
+                } else {
+                    log(`❌ API Error: ${response.status} - ${responseText}`, 'error');
+                }
+            } catch (error) {
+                log(`💥 Network Error: ${error.message}`, 'error');
+                log(`💥 Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+            }
+        }
+
+        async function testDirectFetch() {
+            log('🔍 Testing direct fetch with detailed logging...');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('❌ No token found. Please login first.', 'error');
+                return;
+            }
+
+            const url = 'http://localhost:3001/api/audit-logs?page=1&limit=10';
+            log(`🌐 Fetching: ${url}`);
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                log(`📡 Response received:`);
+                log(`  Status: ${response.status} ${response.statusText}`);
+                log(`  Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+
+                const responseText = await response.text();
+                log(`📄 Response body (${responseText.length} chars): ${responseText.substring(0, 1000)}${responseText.length > 1000 ? '...' : ''}`);
+
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        log(`✅ Parsed JSON successfully!`, 'success');
+                        log(`📊 Data structure: ${JSON.stringify(data, null, 2)}`, 'success');
+                    } catch (e) {
+                        log(`⚠️ Failed to parse JSON: ${e.message}`, 'error');
+                    }
+                } else {
+                    log(`❌ HTTP Error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    log(`⏰ Request timed out after 10 seconds`, 'error');
+                } else {
+                    log(`💥 Fetch Error: ${error.message}`, 'error');
+                    log(`💥 Error type: ${error.name}`, 'error');
+                    log(`💥 Error stack: ${error.stack}`, 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

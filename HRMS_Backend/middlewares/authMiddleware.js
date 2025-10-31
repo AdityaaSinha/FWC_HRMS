@@ -36,6 +36,7 @@ export const authMiddleware = async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
+      employeeId: user.employeeId,
       role: user.role?.name || "UNKNOWN",
     };
 

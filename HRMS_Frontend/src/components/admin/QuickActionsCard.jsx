@@ -5,7 +5,7 @@ import { UserPlus, Settings, Megaphone, ListChecks } from 'lucide-react';
 // Define the actions and their corresponding links/icons
 const actions = [
   { label: "Add New User", icon: UserPlus, path: "/admin/users/add", color: "indigo" }, // Ensure this route exists or adjust
-  { label: "Manage Roles", icon: Settings, path: "/admin/system/role-permission", color: "blue" }, // Link to existing route
+  { label: "Manage Roles", icon: Settings, path: "/admin/system/role-management", color: "blue" }, // Updated to role-management
   { label: "Post Announcement", icon: Megaphone, path: "/admin/communication/system-announcements", color: "green" }, // Link to existing route
   { label: "View Audit Logs", icon: ListChecks, path: "/admin/system/audit-logs", color: "yellow" }, // Link to existing route
 ];

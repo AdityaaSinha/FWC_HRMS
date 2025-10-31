@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -20,10 +21,15 @@ import {
   Briefcase,
   Globe,
   Camera,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from 'lucide-react';
+import Avatar from '../../components/common/Avatar';
+import employeeService from '../../services/employeeService';
+import { getDepartmentNames } from '../../utils/departmentData';
 
 const EmployeeDirectory = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
@@ -31,9 +37,66 @@ const EmployeeDirectory = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showOrgChart, setShowOrgChart] = useState(false);
   const [favorites, setFavorites] = useState(['emp2', 'emp5']);
+  
+  // API state
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50, // Show more employees in directory
+    total: 0,
+    pages: 0
+  });
 
-  // Mock employee data
-  const [employees] = useState([
+  // Load employees on component mount and when filters change
+  useEffect(() => {
+    fetchEmployees(1); // Reset to page 1 when filters change
+  }, [searchTerm, selectedDepartment]);
+
+  // Load employees on initial mount
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  // Fetch employees from API (public access)
+  const fetchEmployees = async (page = pagination.page) => {
+    try {
+      setLoading(true);
+      const params = {
+        page: page,
+        limit: pagination.limit,
+        search: searchTerm || undefined,
+        department: selectedDepartment !== 'all' ? selectedDepartment : undefined
+      };
+
+      console.log('Fetching employees with params:', params); // Debug log
+      const response = await employeeService.getEmployeeDirectory(params);
+      // Handle the wrapped response structure
+      const employeesData = response.data?.employees || response.employees || [];
+      const paginationData = response.data?.pagination || response.pagination || {};
+      
+      console.log('Received employees:', employeesData.length, 'Pagination:', paginationData); // Debug log
+      setEmployees(employeesData);
+      setPagination(prev => ({
+        ...prev,
+        page: page, // Update the page in state
+        total: paginationData.total || 0,
+        pages: paginationData.pages || 0
+      }));
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      setError(err.message);
+      // Fallback to mock data on error
+      setEmployees(MOCK_EMPLOYEES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mock data as fallback
+  const MOCK_EMPLOYEES = [
     {
       id: 'emp1',
       name: 'Aryabrat Mishra',
@@ -66,7 +129,7 @@ const EmployeeDirectory = () => {
       location: 'New York',
       email: 'sarah.johnson@company.com',
       phone: '+1 (555) 234-5678',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+      avatar: 'https://i.pravatar.cc/150?img=49',
       status: 'online',
       joinDate: '2020-01-10',
       manager: 'David Chen',
@@ -176,15 +239,33 @@ const EmployeeDirectory = () => {
         behance: 'https://behance.net/lisapark'
       }
     }
-  ]);
+  ];
 
+  // useEffect hooks for API calls
+  useEffect(() => {
+    fetchEmployees(pagination.page);
+  }, [pagination.page]); // Trigger when page changes
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Reset to page 1 when search/department changes
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEmployees(1); // Explicitly fetch page 1
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, selectedDepartment]);
+
+  // Get department names from centralized data
+  const departmentNames = getDepartmentNames();
+  
   const departments = [
-    { id: 'all', label: 'All Departments', count: employees.length },
-    { id: 'Engineering', label: 'Engineering', count: employees.filter(e => e.department === 'Engineering').length },
-    { id: 'Design', label: 'Design', count: employees.filter(e => e.department === 'Design').length },
-    { id: 'Product', label: 'Product', count: employees.filter(e => e.department === 'Product').length },
-    { id: 'Marketing', label: 'Marketing', count: employees.filter(e => e.department === 'Marketing').length },
-    { id: 'Sales', label: 'Sales', count: employees.filter(e => e.department === 'Sales').length }
+    { id: 'all', label: 'All Departments', count: pagination.total },
+    ...departmentNames.map(dept => ({
+      id: dept,
+      label: dept,
+      count: employees.filter(e => e.department === dept).length
+    }))
   ];
 
   const locations = [
@@ -195,16 +276,20 @@ const EmployeeDirectory = () => {
     { id: 'Remote', label: 'Remote' }
   ];
 
-  // Filter employees
-  const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Filter employees (only apply client-side filtering when using mock data due to error)
+  const filteredEmployees = error ? employees.filter(employee => {
+    const employeeName = employee.name || `${employee.firstName} ${employee.lastName}`;
+    const employeePosition = employee.position || employee.role?.name || employee.role;
+    const employeeSkills = employee.skills || [];
+    
+    const matchesSearch = employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         employeePosition.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
+                         employeeSkills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesDepartment = selectedDepartment === 'all' || employee.department === selectedDepartment;
     const matchesLocation = selectedLocation === 'all' || employee.location === selectedLocation;
     return matchesSearch && matchesDepartment && matchesLocation;
-  });
+  }) : employees; // API already filters, so use employees directly
 
   const toggleFavorite = (empId) => {
     setFavorites(prev => 
@@ -234,43 +319,49 @@ const EmployeeDirectory = () => {
     }
   };
 
-  const EmployeeCard = ({ employee }) => (
+  const EmployeeCard = ({ employee }) => {
+    const employeeName = employee.name || `${employee.firstName} ${employee.lastName}`;
+    const employeePosition = employee.position || employee.role?.name || employee.role;
+    const employeeSkills = employee.skills || [];
+    const employeeId = employee.id || employee._id;
+    
+    return (
     <div className="bg-gradient-to-br from-[#1B1E2B] to-[#2A2D3D] rounded-xl border border-gray-700/50 backdrop-blur-sm p-6 hover:border-indigo-500/50 transition-all duration-300 group">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-full border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden">
-              {employee.avatar ? (
-                <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
-              ) : (
-                <User size={24} className="text-indigo-400" />
-              )}
-            </div>
-            <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${getStatusColor(employee.status)} rounded-full border-2 border-[#1B1E2B]`}></div>
+            <Avatar 
+              user={employee} 
+              name={employeeName} 
+              email={employee.email} 
+              size={64} 
+              className="border-2 border-indigo-500/30"
+            />
+            <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${getStatusColor(employee.status || 'offline')} rounded-full border-2 border-[#1B1E2B]`}></div>
           </div>
           
           <div className="flex-1">
             <h3 className="font-semibold text-gray-100 group-hover:text-indigo-400 transition-colors">
-              {employee.name}
+              {employeeName}
             </h3>
-            <p className="text-sm text-gray-400 mt-1">{employee.position}</p>
+            <p className="text-sm text-gray-400 mt-1">{employeePosition}</p>
             <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
               <Building size={12} />
-              {employee.department} • {employee.location}
+              {employee.department} • {employee.location || 'N/A'}
             </p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleFavorite(employee.id)}
+            onClick={() => toggleFavorite(employeeId)}
             className={`p-2 rounded-lg transition-colors ${
-              favorites.includes(employee.id)
+              favorites.includes(employeeId)
                 ? 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20'
                 : 'text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10'
             }`}
           >
-            <Star size={16} fill={favorites.includes(employee.id) ? 'currentColor' : 'none'} />
+            <Star size={16} fill={favorites.includes(employeeId) ? 'currentColor' : 'none'} />
           </button>
           <button className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-600/20 rounded-lg transition-colors">
             <MoreVertical size={16} />
@@ -285,47 +376,55 @@ const EmployeeDirectory = () => {
             {employee.email}
           </a>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Phone size={14} />
-          <a href={`tel:${employee.phone}`} className="hover:text-indigo-400 transition-colors">
-            {employee.phone}
-          </a>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Clock size={14} />
-          {employee.workingHours} ({employee.timezone})
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <p className="text-sm text-gray-300 line-clamp-2">{employee.bio}</p>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        {employee.skills.slice(0, 3).map((skill, index) => (
-          <span
-            key={index}
-            className="px-2 py-1 bg-indigo-400/10 border border-indigo-400/20 rounded text-xs text-indigo-400"
-          >
-            {skill}
-          </span>
-        ))}
-        {employee.skills.length > 3 && (
-          <span className="px-2 py-1 bg-gray-400/10 border border-gray-400/20 rounded text-xs text-gray-400">
-            +{employee.skills.length - 3} more
-          </span>
+        {employee.phone && (
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Phone size={14} />
+            <a href={`tel:${employee.phone}`} className="hover:text-indigo-400 transition-colors">
+              {employee.phone}
+            </a>
+          </div>
+        )}
+        {(employee.workingHours || employee.timezone) && (
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Clock size={14} />
+            {employee.workingHours || '9 AM - 5 PM'} ({employee.timezone || 'UTC'})
+          </div>
         )}
       </div>
+
+      {employee.bio && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-300 line-clamp-2">{employee.bio}</p>
+        </div>
+      )}
+
+      {employeeSkills.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {employeeSkills.slice(0, 3).map((skill, index) => (
+            <span
+              key={index}
+              className="px-2 py-1 bg-indigo-400/10 border border-indigo-400/20 rounded text-xs text-indigo-400"
+            >
+              {skill}
+            </span>
+          ))}
+          {employeeSkills.length > 3 && (
+            <span className="px-2 py-1 bg-gray-400/10 border border-gray-400/20 rounded text-xs text-gray-400">
+              +{employeeSkills.length - 3} more
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between pt-4 border-t border-gray-700/50">
         <div className="flex items-center gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-1">
             <Users size={12} />
-            {employee.directReports} reports
+            {employee.directReports || 0} reports
           </div>
           <div className="flex items-center gap-1">
             <Calendar size={12} />
-            Joined {new Date(employee.joinDate).getFullYear()}
+            Joined {employee.joinDate ? new Date(employee.joinDate).getFullYear() : 'N/A'}
           </div>
         </div>
         
@@ -339,40 +438,47 @@ const EmployeeDirectory = () => {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
-  const EmployeeListItem = ({ employee }) => (
+  const EmployeeListItem = ({ employee }) => {
+    const employeeName = employee.name || `${employee.firstName} ${employee.lastName}`;
+    const employeePosition = employee.position || employee.role?.name || employee.role;
+    const employeeSkills = employee.skills || [];
+    const employeeId = employee.id || employee._id;
+    
+    return (
     <div className="bg-gradient-to-r from-[#1B1E2B] to-[#2A2D3D] rounded-lg border border-gray-700/50 backdrop-blur-sm p-4 hover:border-indigo-500/50 transition-all duration-300 group">
       <div className="flex items-center gap-4">
         <div className="relative">
-          <div className="w-12 h-12 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-full border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden">
-            {employee.avatar ? (
-              <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
-            ) : (
-              <User size={16} className="text-indigo-400" />
-            )}
-          </div>
-          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(employee.status)} rounded-full border-2 border-[#1B1E2B]`}></div>
+          <Avatar 
+            user={employee} 
+            name={employeeName} 
+            email={employee.email} 
+            size={48} 
+            className="border-2 border-indigo-500/30"
+          />
+          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(employee.status || 'offline')} rounded-full border-2 border-[#1B1E2B]`}></div>
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1">
             <h3 className="font-semibold text-gray-100 group-hover:text-indigo-400 transition-colors">
-              {employee.name}
+              {employeeName}
             </h3>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              employee.status === 'online' ? 'bg-green-400/10 text-green-400' :
-              employee.status === 'away' ? 'bg-yellow-400/10 text-yellow-400' :
-              employee.status === 'busy' ? 'bg-red-400/10 text-red-400' :
+              (employee.status || 'offline') === 'online' ? 'bg-green-400/10 text-green-400' :
+              (employee.status || 'offline') === 'away' ? 'bg-yellow-400/10 text-yellow-400' :
+              (employee.status || 'offline') === 'busy' ? 'bg-red-400/10 text-red-400' :
               'bg-gray-400/10 text-gray-400'
             }`}>
-              {getStatusText(employee.status)}
+              {getStatusText(employee.status || 'offline')}
             </span>
           </div>
-          <p className="text-sm text-gray-400">{employee.position} • {employee.department}</p>
+          <p className="text-sm text-gray-400">{employeePosition} • {employee.department}</p>
           <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
             <MapPin size={10} />
-            {employee.location}
+            {employee.location || 'N/A'}
           </p>
         </div>
 
@@ -382,28 +488,30 @@ const EmployeeDirectory = () => {
               {employee.email}
             </a>
           </div>
-          <div className="hidden lg:flex items-center gap-2">
-            {employee.skills.slice(0, 2).map((skill, index) => (
-              <span
-                key={index}
-                className="px-2 py-1 bg-indigo-400/10 border border-indigo-400/20 rounded text-xs text-indigo-400"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
+          {employeeSkills.length > 0 && (
+            <div className="hidden lg:flex items-center gap-2">
+              {employeeSkills.slice(0, 2).map((skill, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 bg-indigo-400/10 border border-indigo-400/20 rounded text-xs text-indigo-400"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleFavorite(employee.id)}
+            onClick={() => toggleFavorite(employeeId)}
             className={`p-2 rounded-lg transition-colors ${
-              favorites.includes(employee.id)
+              favorites.includes(employeeId)
                 ? 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20'
                 : 'text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10'
             }`}
           >
-            <Star size={16} fill={favorites.includes(employee.id) ? 'currentColor' : 'none'} />
+            <Star size={16} fill={favorites.includes(employeeId) ? 'currentColor' : 'none'} />
           </button>
           <button className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors">
             <MessageCircle size={16} />
@@ -414,7 +522,8 @@ const EmployeeDirectory = () => {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#11131A] via-[#1B1E2B] to-[#11131A] p-6">
@@ -550,9 +659,19 @@ const EmployeeDirectory = () => {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <p className="text-gray-400">
-            Showing {filteredEmployees.length} of {employees.length} employees
-            {searchTerm && (
-              <span className="text-indigo-400"> for "{searchTerm}"</span>
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                Loading employees...
+              </span>
+            ) : (
+              <>
+                Showing {filteredEmployees.length} of {pagination.total || employees.length} employees
+                {error && <span className="text-red-400 ml-2">(showing cached data)</span>}
+                {searchTerm && (
+                  <span className="text-indigo-400"> for "{searchTerm}"</span>
+                )}
+              </>
             )}
           </p>
           
@@ -566,20 +685,33 @@ const EmployeeDirectory = () => {
       </div>
 
       {/* Employee Grid/List */}
-      <div className={
-        viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
-          : 'space-y-4'
-      }>
-        {filteredEmployees.map(employee => (
+      {!loading && (
+        <div className={
           viewMode === 'grid' 
-            ? <EmployeeCard key={employee.id} employee={employee} />
-            : <EmployeeListItem key={employee.id} employee={employee} />
-        ))}
-      </div>
+            ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+            : 'space-y-4'
+        }>
+          {filteredEmployees.map(employee => {
+            const employeeId = employee.id || employee._id;
+            return viewMode === 'grid' 
+              ? <EmployeeCard key={employeeId} employee={employee} />
+              : <EmployeeListItem key={employeeId} employee={employee} />
+          })}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 size={48} className="text-indigo-400 animate-spin mx-auto mb-4" />
+            <p className="text-gray-400">Loading employees...</p>
+          </div>
+        </div>
+      )}
 
       {/* Empty State */}
-      {filteredEmployees.length === 0 && (
+      {!loading && filteredEmployees.length === 0 && (
         <div className="text-center py-12">
           <Users size={64} className="text-gray-600 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-300 mb-2">No employees found</h3>
@@ -597,6 +729,29 @@ const EmployeeDirectory = () => {
               Clear Search
             </button>
           )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && pagination.pages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <button
+            onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+            disabled={pagination.page === 1}
+            className="px-4 py-2 bg-[#1B1E2B] border border-gray-700/50 rounded-lg text-gray-300 hover:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-gray-400">
+            Page {pagination.page} of {pagination.pages}
+          </span>
+          <button
+            onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.pages, prev.page + 1) }))}
+            disabled={pagination.page === pagination.pages}
+            className="px-4 py-2 bg-[#1B1E2B] border border-gray-700/50 rounded-lg text-gray-300 hover:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
         </div>
       )}
 

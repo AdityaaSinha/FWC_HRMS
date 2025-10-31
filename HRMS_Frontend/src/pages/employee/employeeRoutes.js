@@ -1,6 +1,7 @@
-import { Home, Calendar, MessageCircle, User, Clock, DollarSign, Bell, Users, Megaphone, FileText, BookOpen, Target, CheckSquare, HelpCircle, CalendarDays, TrendingUp } from 'lucide-react';
+import { Home, Calendar, MessageCircle, User, Clock, DollarSign, Bell, Users, Megaphone, FileText, BookOpen, Target, CheckSquare, HelpCircle, CalendarDays, TrendingUp, History } from 'lucide-react';
 import EmployeeDashboardHome from './EmployeeDashboardHome';
 import EmployeeLeaveApply from './EmployeeLeaveApply';
+import EmployeeLeaveHistory from './EmployeeLeaveHistory';
 import EmployeeChatbot from './EmployeeChatbot';
 import EmployeeProfile from './EmployeeProfile';
 import EmployeeAttendance from './EmployeeAttendance';
@@ -29,7 +30,8 @@ export const employeeRoutes = [
   {
     module: 'Leave & Attendance',
     pages: [
-      { path: 'leave-apply', label: 'Apply Leave', icon: Calendar, component: EmployeeLeaveApply },
+      { path: 'leave-apply', label: 'Apply for Leave', icon: Calendar, component: EmployeeLeaveApply },
+      { path: 'leave-history', label: 'Leave History', icon: History, component: EmployeeLeaveHistory },
       { path: 'attendance', label: 'Attendance', icon: Clock, component: EmployeeAttendance },
     ],
   },

@@ -45,14 +45,57 @@ router.post("/login", async (req, res) => {
 
     console.log("🔍 User fetched from DB:", user ? user.email : "Not found");
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      // Log failed login attempt - user not found
+      await prisma.auditLog.create({
+        data: {
+          action: "Failed Login Attempt",
+          category: "Authentication",
+          resource: "User Account",
+          severity: "warning",
+          status: "failed",
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.get('User-Agent') || "unknown",
+          description: `Failed login attempt for non-existent user: ${email}`,
+          details: JSON.stringify({
+            attemptedEmail: email,
+            reason: "User not found",
+            timestamp: new Date().toISOString()
+          })
+        }
+      });
+      return res.status(404).json({ error: "User not found" });
+    }
 
     // Compare password
     const valid = await bcrypt.compare(password, user.password);
     console.log("🔑 Password valid:", valid);
 
-    if (!valid)
+    if (!valid) {
+      // Log failed login attempt - invalid password
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "Failed Login Attempt",
+          category: "Authentication",
+          resource: "User Account",
+          resourceId: user.id.toString(),
+          severity: "warning",
+          status: "failed",
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.get('User-Agent') || "unknown",
+          description: `Failed login attempt for user ${user.name} (${user.email}) - invalid password`,
+          details: JSON.stringify({
+            userId: user.id,
+            userEmail: user.email,
+            userName: user.name,
+            reason: "Invalid password",
+            timestamp: new Date().toISOString()
+          })
+        }
+      });
       return res.status(401).json({ error: "Invalid password" });
+    }
 
     // Generate JWT safely
     const token = jwt.sign(
@@ -64,6 +107,29 @@ router.post("/login", async (req, res) => {
     // Log login activity
     await prisma.loginActivity.create({
       data: { userId: user.id, activity: "User logged in" },
+    });
+
+    // Create audit log entry for login
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "User Login",
+        category: "Authentication",
+        resource: "User Account",
+        resourceId: user.id.toString(),
+        severity: "info",
+        status: "success",
+        ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+        userAgent: req.get('User-Agent') || "unknown",
+        description: `User ${user.name} (${user.email}) logged in successfully`,
+        details: JSON.stringify({
+          userId: user.id,
+          userEmail: user.email,
+          userName: user.name,
+          userRole: user.role?.name,
+          loginTime: new Date().toISOString()
+        })
+      }
     });
 
     console.log("✅ Login success:", { user: user.email, role: user.role?.name });

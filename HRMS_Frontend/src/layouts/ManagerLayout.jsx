@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -12,22 +12,90 @@ import {
   Brain,
   LogOut,
   X,
+  ChevronDown,
 } from 'lucide-react';
+import { managerRoutes } from '../pages/manager/managerRoutes';
+import Avatar from '../components/common/Avatar';
 
 export default function ManagerLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [collapsedModules, setCollapsedModules] = useState({});
+  
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  // Fetch logged-in user info
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoadingUser(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:3001/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.role !== 'MANAGER') {
+            localStorage.removeItem('token');
+            navigate('/');
+            return;
+          }
+          setCurrentUser(userData);
+        } else {
+          if (response.status === 401 || response.status === 404) {
+            localStorage.removeItem('token');
+            navigate('/');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        localStorage.removeItem('token');
+        navigate('/');
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
 
   const handleLogoutConfirm = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('userName');
+    setCurrentUser(null);
     setShowLogoutModal(false);
     navigate('/');
   };
 
   return (
     <div className="flex h-screen bg-[#11131A] text-white">
-      {/* Sidebar */}
-      <aside className="w-64 flex flex-col justify-between bg-[#1B1E2B] border-r border-gray-800 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2A2D3D] scrollbar-track-[#1B1E2B]">
+      {/* Loading state */}
+      {loadingUser ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading user data...</p>
+          </div>
+        </div>
+      ) : !currentUser ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="text-center">
+            <p className="text-gray-400">Unable to load user data</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Sidebar */}
+          <aside className="w-64 flex flex-col justify-between bg-[#1B1E2B] border-r border-gray-800 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2A2D3D] scrollbar-track-[#1B1E2B]">
         <div>
           {/* Logo */}
           <div className="p-6 border-b border-gray-800">
@@ -161,12 +229,13 @@ export default function ManagerLayout() {
         {/* Footer */}
         <div className="p-4 border-t border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3 text-gray-400">
-            <img
-              src="https://i.pravatar.cc/32"
-              alt="Manager"
-              className="w-8 h-8 rounded-full border border-gray-600"
+            <Avatar
+              user={currentUser}
+              name={currentUser.name}
+              size={32}
+              className="border border-gray-600"
             />
-            <span className="text-sm font-medium">Manager</span>
+            <span className="text-sm font-medium">{currentUser.name}</span>
           </div>
           <button
             onClick={() => setShowLogoutModal(true)}
@@ -184,11 +253,12 @@ export default function ManagerLayout() {
         <header className="bg-[#1B1E2B] border-b border-gray-800 p-4 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-200">Manager Dashboard</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400">Welcome, Manager</span>
-            <img
-              src="https://i.pravatar.cc/35"
-              alt="Avatar"
-              className="w-8 h-8 rounded-full border border-gray-600"
+            <span className="text-sm text-gray-400">Welcome, {currentUser.name}</span>
+            <Avatar
+              user={currentUser}
+              name={currentUser.name}
+              size={32}
+              className="border border-gray-600"
             />
           </div>
         </header>
@@ -231,6 +301,8 @@ export default function ManagerLayout() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

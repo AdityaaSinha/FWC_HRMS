@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { MOCK_USERS } from '../../mocks/MOCK_USERS';
+import { exportUsersToCSV } from '../../utils/csvExportUtils';
+import { getDepartmentNames } from '../../utils/departmentData';
 import {
   Users,
   Building,
@@ -40,7 +42,7 @@ const AdminUserManagement = () => {
   const [sortOrder, setSortOrder] = useState('asc');
 
   // Mock data for dropdowns
-  const departments = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Operations', 'Legal', 'IT Support'];
+  const departments = getDepartmentNames();
   const roles = ['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'];
   const statuses = ['Active', 'Inactive', 'Pending'];
 
@@ -212,6 +214,17 @@ const AdminUserManagement = () => {
     }
   };
 
+  const handleExportUsers = () => {
+    const dataToExport = selectedUsers.length > 0 
+      ? users.filter(user => selectedUsers.includes(user.id))
+      : sortedUsers;
+    
+    exportUsersToCSV(dataToExport, {
+      filename: `users_export_${new Date().toISOString().split('T')[0]}.csv`,
+      columns: ['id', 'name', 'email', 'role', 'department']
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#1E2132] text-white p-6">
       {/* Header */}
@@ -226,7 +239,10 @@ const AdminUserManagement = () => {
             <Upload className="w-4 h-4 mr-2" />
             Import
           </button>
-          <button className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
+          <button 
+            onClick={handleExportUsers}
+            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+          >
             <Download className="w-4 h-4 mr-2" />
             Export
           </button>

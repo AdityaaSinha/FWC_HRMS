@@ -27,6 +27,7 @@ import {
   Briefcase,
   Clock
 } from 'lucide-react';
+import CurrencySelector from '../../../components/CurrencySelector';
 
 // Mock data for benefits and compensation
 const mockBenefitsData = {
@@ -151,6 +152,7 @@ export default function BenefitsCompensation() {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedCurrency, setSelectedCurrency] = useState('USD');
 
   const handleCreatePackage = () => {
     setModalType('create-package');
@@ -184,12 +186,26 @@ export default function BenefitsCompensation() {
     return colorClasses[color] || 'bg-gray-700 text-gray-300';
   };
 
-  const formatCurrency = (amount) => {
+  // Exchange rates (mock data - in real app, fetch from API)
+  const exchangeRates = {
+    USD: 1.0,
+    EUR: 0.85,
+    GBP: 0.73,
+    JPY: 110.0,
+    CAD: 1.25,
+    AUD: 1.35,
+    CHF: 0.92,
+    CNY: 6.45
+  };
+
+  const formatCurrency = (amount, currency = selectedCurrency) => {
+    const convertedAmount = amount * exchangeRates[currency];
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0
-    }).format(amount);
+      currency: currency,
+      minimumFractionDigits: currency === 'JPY' ? 0 : 2
+    }).format(convertedAmount);
   };
 
   return (
@@ -201,6 +217,10 @@ export default function BenefitsCompensation() {
           <p className="text-gray-400 text-sm">Manage employee benefits and compensation packages</p>
         </div>
         <div className="flex gap-3">
+          <CurrencySelector 
+            selectedCurrency={selectedCurrency}
+            onCurrencyChange={setSelectedCurrency}
+          />
           <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600">
             <Download size={16} />
             Export Reports

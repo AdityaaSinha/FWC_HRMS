@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+    </style>
+</head>
+<body>
+    <h1>Token Check</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        // Check localStorage
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('role');
+        const userName = localStorage.getItem('userName');
+
+        addResult(`Token exists: ${!!token}`, token ? 'success' : 'error');
+        addResult(`Token length: ${token ? token.length : 0}`);
+        addResult(`Role: ${role || 'Not found'}`, role ? 'success' : 'error');
+        addResult(`User Name: ${userName || 'Not found'}`, userName ? 'success' : 'error');
+
+        if (token) {
+            addResult(`Token preview: ${token.substring(0, 50)}...`);
+            
+            // Try to decode JWT payload (just the payload part, not verifying signature)
+            try {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    addResult(`JWT Payload: ${JSON.stringify(payload, null, 2)}`, 'success');
+                    
+                    // Check expiration
+                    if (payload.exp) {
+                        const expDate = new Date(payload.exp * 1000);
+                        const now = new Date();
+                        addResult(`Token expires: ${expDate.toLocaleString()}`, expDate > now ? 'success' : 'error');
+                        addResult(`Token expired: ${expDate < now}`, expDate < now ? 'error' : 'success');
+                    }
+                } else {
+                    addResult('Invalid JWT format', 'error');
+                }
+            } catch (e) {
+                addResult(`JWT decode error: ${e.message}`, 'error');
+            }
+
+            // Test API call
+            addResult('Testing API call to /api/auth/me...');
+            fetch('http://localhost:3001/api/auth/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                addResult(`API Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+                return response.json();
+            })
+            .then(data => {
+                addResult(`API Response: ${JSON.stringify(data, null, 2)}`, 'success');
+            })
+            .catch(error => {
+                addResult(`API Error: ${error.message}`, 'error');
+            });
+
+            // Test audit logs API call
+            addResult('Testing API call to /api/audit-logs...');
+            fetch('http://localhost:3001/api/audit-logs', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                addResult(`Audit Logs API Status: ${response.status}`, response.ok ? 'success' : 'error');
+                return response.json();
+            })
+            .then(data => {
+                addResult(`Audit Logs Response: ${JSON.stringify(data, null, 2)}`, 'success');
+            })
+            .catch(error => {
+                addResult(`Audit Logs API Error: ${error.message}`, 'error');
+            });
+        }
+    </script>
+</body>
+</html>

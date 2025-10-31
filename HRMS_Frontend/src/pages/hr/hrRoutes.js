@@ -13,6 +13,7 @@ import HRDashboardHome from './HRDashboardHome';
 import HRCandidatesDashboard from './HRCandidatesDashboard';
 
 // --- NEW/UPDATED IMPORTS ---
+import TestJobsDashboard from './TestJobsDashboard';     // TEMPORARY TEST COMPONENT
 import HRJobsDashboard from './HRJobsDashboard';     // The parent layout component
 import HRJobListPage from './HRJobListPage';       // The job list page
 import HRCreateJobPage from './HRCreateJobPage';   // The create form page
@@ -50,7 +51,7 @@ export const hrRoutes = [
         path: 'jobs', 
         label: 'Job Listings',
         icon: Briefcase,
-        component: HRJobsDashboard, 
+        component: HRJobsDashboard, // BACK TO ORIGINAL COMPONENT
         
         children: [
           {

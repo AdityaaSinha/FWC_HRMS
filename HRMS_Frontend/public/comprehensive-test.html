@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        .warning { background-color: #fff3cd; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; font-size: 12px; }
+        button { margin: 5px; padding: 10px 15px; }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive API Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Basic Connectivity Tests</h2>
+        <button onclick="testBackendHealth()">Test Backend Health</button>
+        <button onclick="testCORS()">Test CORS</button>
+        <button onclick="testNetworkConnectivity()">Test Network</button>
+    </div>
+
+    <div class="test-section">
+        <h2>2. API Endpoint Tests</h2>
+        <button onclick="testAuditLogsAPI()">Test Audit Logs API</button>
+        <button onclick="testAuditStatsAPI()">Test Audit Stats API</button>
+        <button onclick="testWithParams()">Test With Parameters</button>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Service Integration Tests</h2>
+        <button onclick="testServiceImport()">Test Service Import</button>
+        <button onclick="testServiceMethods()">Test Service Methods</button>
+    </div>
+
+    <div class="test-section">
+        <button onclick="clearResults()">Clear All Results</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(title, content, type = 'success') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${typeof content === 'object' ? JSON.stringify(content, null, 2) : content}</pre>`;
+            results.appendChild(div);
+            console.log(`${title}:`, content);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testBackendHealth() {
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                if (response.ok) {
+                    const data = await response.text();
+                    addResult('Backend Health Check', `Status: ${response.status} - ${data}`, 'success');
+                } else {
+                    addResult('Backend Health Check', `Status: ${response.status} - ${response.statusText}`, 'warning');
+                }
+            } catch (error) {
+                addResult('Backend Health Check', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCORS() {
+            try {
+                const response = await fetch('http://localhost:3001/api/public/audit-logs', {
+                    method: 'OPTIONS'
+                });
+                addResult('CORS Test', {
+                    status: response.status,
+                    headers: Object.fromEntries(response.headers.entries())
+                }, response.ok ? 'success' : 'warning');
+            } catch (error) {
+                addResult('CORS Test', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testNetworkConnectivity() {
+            try {
+                const start = Date.now();
+                const response = await fetch('http://localhost:3001/api/public/audit-logs');
+                const end = Date.now();
+                
+                addResult('Network Connectivity', {
+                    responseTime: `${end - start}ms`,
+                    status: response.status,
+                    ok: response.ok,
+                    url: response.url
+                }, response.ok ? 'success' : 'error');
+            } catch (error) {
+                addResult('Network Connectivity', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAuditLogsAPI() {
+            try {
+                const response = await fetch('http://localhost:3001/api/public/audit-logs');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                addResult('Audit Logs API', {
+                    status: response.status,
+                    contentType: response.headers.get('content-type'),
+                    dataStructure: {
+                        success: data.success,
+                        hasData: !!data.data,
+                        dataLength: data.data?.length,
+                        hasPagination: !!data.pagination,
+                        keys: Object.keys(data)
+                    },
+                    sampleData: data.data?.slice(0, 2) // First 2 records
+                }, 'success');
+            } catch (error) {
+                addResult('Audit Logs API', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAuditStatsAPI() {
+            try {
+                const response = await fetch('http://localhost:3001/api/public/audit-logs/stats');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addResult('Audit Stats API', data, 'success');
+            } catch (error) {
+                addResult('Audit Stats API', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithParams() {
+            try {
+                const params = new URLSearchParams({
+                    page: '1',
+                    limit: '5',
+                    severity: 'INFO'
+                });
+                
+                const response = await fetch(`http://localhost:3001/api/public/audit-logs?${params}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addResult('API with Parameters', {
+                    requestUrl: response.url,
+                    success: data.success,
+                    dataLength: data.data?.length,
+                    pagination: data.pagination
+                }, 'success');
+            } catch (error) {
+                addResult('API with Parameters', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testServiceImport() {
+            try {
+                // Simulate the service structure
+                const API_BASE_URL = 'http://localhost:3001/api/public';
+                
+                const publicApi = {
+                    get: async (endpoint, options = {}) => {
+                        const { params } = options;
+                        let url = `${API_BASE_URL}${endpoint}`;
+                        
+                        if (params) {
+                            const searchParams = new URLSearchParams();
+                            Object.entries(params).forEach(([key, value]) => {
+                                if (value !== undefined && value !== null && value !== '') {
+                                    searchParams.append(key, value);
+                                }
+                            });
+                            if (searchParams.toString()) {
+                                url += `?${searchParams.toString()}`;
+                            }
+                        }
+
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        return response.json();
+                    }
+                };
+
+                const testService = {
+                    getAuditLogs: async (params = {}) => {
+                        const response = await publicApi.get('/audit-logs', { params });
+                        return response;
+                    }
+                };
+
+                const result = await testService.getAuditLogs({ page: 1, limit: 3 });
+                
+                addResult('Service Import Simulation', {
+                    serviceWorking: true,
+                    responseStructure: {
+                        success: result.success,
+                        hasData: !!result.data,
+                        dataLength: result.data?.length,
+                        hasPagination: !!result.pagination
+                    }
+                }, 'success');
+            } catch (error) {
+                addResult('Service Import Simulation', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testServiceMethods() {
+            try {
+                // Test all the methods that should exist
+                const methods = ['getAuditLogs', 'getAuditLogById', 'getAuditLogStats'];
+                const results = {};
+                
+                for (const method of methods) {
+                    try {
+                        if (method === 'getAuditLogs') {
+                            const response = await fetch('http://localhost:3001/api/public/audit-logs');
+                            results[method] = response.ok ? 'Working' : `Failed: ${response.status}`;
+                        } else if (method === 'getAuditLogStats') {
+                            const response = await fetch('http://localhost:3001/api/public/audit-logs/stats');
+                            results[method] = response.ok ? 'Working' : `Failed: ${response.status}`;
+                        } else if (method === 'getAuditLogById') {
+                            // Skip this for now as we need an ID
+                            results[method] = 'Skipped (needs ID)';
+                        }
+                    } catch (error) {
+                        results[method] = `Error: ${error.message}`;
+                    }
+                }
+                
+                addResult('Service Methods Test', results, 'success');
+            } catch (error) {
+                addResult('Service Methods Test', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic tests on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testNetworkConnectivity();
+                setTimeout(() => testAuditLogsAPI(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

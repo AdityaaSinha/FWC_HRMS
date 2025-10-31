@@ -1,0 +1,36 @@
+JOHN DOE
+Frontend Developer
+
+CONTACT INFORMATION
+Email: john.doe@email.com
+Phone: (555) 123-4567
+Location: New York, NY
+
+PROFESSIONAL SUMMARY
+Experienced Frontend Developer with 5+ years of expertise in React, JavaScript, and modern web technologies. Passionate about creating user-friendly interfaces and optimizing web performance.
+
+TECHNICAL SKILLS
+- Programming Languages: JavaScript, TypeScript, HTML5, CSS3
+- Frameworks & Libraries: React, Vue.js, Angular, Node.js
+- Tools & Technologies: Git, Webpack, Docker, Jest
+- UI/UX: Responsive Design, Material-UI, Bootstrap
+
+WORK EXPERIENCE
+Senior Frontend Developer | Tech Solutions Inc. | 2021 - Present
+- Developed and maintained React applications serving 100K+ users
+- Improved application performance by 40% through code optimization
+- Led a team of 3 junior developers
+- Implemented responsive designs across multiple platforms
+
+Frontend Developer | Digital Agency | 2019 - 2021
+- Built interactive web applications using React and JavaScript
+- Collaborated with design teams to implement pixel-perfect UIs
+- Integrated RESTful APIs and GraphQL endpoints
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of Technology | 2015 - 2019
+
+CERTIFICATIONS
+- React Developer Certification (2020)
+- JavaScript Advanced Certification (2019)

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Building2, Mail, Users, Send, Eye, EyeOff, ArrowLeft, Search, Phone, MapPin, Calendar, UserCheck, Edit, Badge, Clock, DollarSign, Award, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DEPARTMENTS, calculateDepartmentStats } from '../../utils/departmentData';
 
 export default function HRDepartmentsPage() {
   const [selectedDepartments, setSelectedDepartments] = useState([]);
@@ -12,62 +13,8 @@ export default function HRDepartmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  const departments = [
-    {
-      id: 'engineering',
-      name: 'Engineering',
-      email: 'engineering@company.com',
-      headOfDepartment: 'John Smith',
-      employeeCount: 45,
-      description: 'Software development and technical innovation',
-      color: 'blue'
-    },
-    {
-      id: 'hr',
-      name: 'HR',
-      email: 'hr@company.com',
-      headOfDepartment: 'Sarah Johnson',
-      employeeCount: 12,
-      description: 'Human resources and talent management',
-      color: 'green'
-    },
-    {
-      id: 'finance',
-      name: 'Finance',
-      email: 'finance@company.com',
-      headOfDepartment: 'Michael Brown',
-      employeeCount: 18,
-      description: 'Financial planning and accounting',
-      color: 'yellow'
-    },
-    {
-      id: 'marketing',
-      name: 'Marketing',
-      email: 'marketing@company.com',
-      headOfDepartment: 'Emily Davis',
-      employeeCount: 22,
-      description: 'Brand promotion and customer engagement',
-      color: 'purple'
-    },
-    {
-      id: 'operations',
-      name: 'Operations',
-      email: 'operations@company.com',
-      headOfDepartment: 'David Wilson',
-      employeeCount: 35,
-      description: 'Business operations and process management',
-      color: 'red'
-    },
-    {
-      id: 'design',
-      name: 'Design',
-      email: 'design@company.com',
-      headOfDepartment: 'Jessica Chen',
-      employeeCount: 15,
-      description: 'UI/UX design and creative solutions',
-      color: 'pink'
-    }
-  ];
+  // Use centralized department data
+  const departments = DEPARTMENTS;
 
   // Enhanced employee data
   const employees = [

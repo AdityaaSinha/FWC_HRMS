@@ -4,10 +4,14 @@ import { LayoutDashboard, Users, Settings, FileText, Shield, Archive, Zap, Layer
 // Dashboard
 import AdminDashboardHome from './AdminDashboardHome';
 
+// Management Components
+import UserManagement from '../../components/admin/UserManagement';
+import RoleManagement from '../../components/admin/RoleManagement';
+
 // System & Access Control
-import RolePermission from './system/RolePermission';
-import AuditLogs from './system/AuditLogs';
+import AuditLogs from './system/AuditLogs'; // Back to original component
 import TwoFAManagement from './system/TwoFAManagement';
+import TestComponent from './system/TestComponent';
 import SSOIntegration from './system/SSOIntegration';
 
 // User & Department
@@ -69,7 +73,7 @@ export const adminRoutes = [
   {
     module: 'System & Access Control',
     pages: [
-      { path: 'system/role-permission', label: 'Role & Permission', icon: Users, component: RolePermission },
+      { path: 'system/role-management', label: 'Role Management', icon: Shield, component: RoleManagement },
       { path: 'system/audit-logs', label: 'Audit Logs', icon: FileText, component: AuditLogs },
       { path: 'system/2fa', label: '2FA Management', icon: Shield, component: TwoFAManagement },
       { path: 'system/sso', label: 'SSO Integration', icon: Settings, component: SSOIntegration },
@@ -79,6 +83,7 @@ export const adminRoutes = [
   {
     module: 'User & Department',
     pages: [
+      { path: 'user/management', label: 'User Management', icon: Users, component: UserManagement },
       { path: 'user/bulk-import-export', label: 'Bulk User Import/Export', icon: Users, component: BulkUserImportExport },
       { path: 'user/account-activation', label: 'Account Activation', icon: Users, component: AccountActivation },
       { path: 'user/department-hierarchy', label: 'Department Hierarchy', icon: Users, component: DepartmentHierarchy },

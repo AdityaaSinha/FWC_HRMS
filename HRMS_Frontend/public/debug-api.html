@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug API Test</h1>
+    
+    <button onclick="testDirectFetch()">Test Direct Fetch</button>
+    <button onclick="testWithService()">Test With Service</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(title, content, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${JSON.stringify(content, null, 2)}</pre>`;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testDirectFetch() {
+            try {
+                console.log('🧪 Testing direct fetch...');
+                const response = await fetch('http://localhost:3001/api/public/audit-logs');
+                
+                addResult('Direct Fetch - Response Object', {
+                    ok: response.ok,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+
+                const data = await response.json();
+                addResult('Direct Fetch - JSON Data', data);
+                
+            } catch (error) {
+                console.error('❌ Direct fetch error:', error);
+                addResult('Direct Fetch - Error', {
+                    message: error.message,
+                    stack: error.stack
+                }, true);
+            }
+        }
+
+        async function testWithService() {
+            try {
+                console.log('🧪 Testing with service...');
+                
+                // Simulate the service logic
+                const API_BASE_URL = 'http://localhost:3001/api/public';
+                const url = `${API_BASE_URL}/audit-logs`;
+                
+                console.log('🔗 URL:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                addResult('Service Test - Response Object', {
+                    ok: response.ok,
+                    status: response.status,
+                    statusText: response.statusText
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const jsonData = await response.json();
+                addResult('Service Test - JSON Data', jsonData);
+                
+                // Test what the service would return
+                addResult('Service Test - What Service Returns', jsonData);
+                
+            } catch (error) {
+                console.error('❌ Service test error:', error);
+                addResult('Service Test - Error', {
+                    message: error.message,
+                    stack: error.stack
+                }, true);
+            }
+        }
+    </script>
+</body>
+</html>

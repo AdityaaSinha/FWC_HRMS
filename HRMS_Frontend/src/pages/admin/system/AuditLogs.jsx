@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, Eye, AlertTriangle, CheckCircle, XCircle, Clock, User, Calendar, FileText, Shield, Activity, Database, Settings, Users, Lock, Trash2, Edit, Plus, RefreshCw } from 'lucide-react';
+import publicAuditLogService from '../../../services/publicAuditLogService';
+import DebugAuth from '../../../components/DebugAuth';
 
 const AuditLogs = () => {
+  
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('today');
@@ -10,236 +13,124 @@ const AuditLogs = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [showLogDetails, setShowLogDetails] = useState(false);
+  
+  // API state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  });
+  const [error, setError] = useState(null);
 
-  // Mock data for audit logs
-  const mockLogs = [
-    {
-      id: 1,
-      timestamp: '2024-01-15 14:30:25',
-      user: 'admin@company.com',
-      userName: 'System Admin',
-      action: 'User Created',
-      category: 'User Management',
-      resource: 'User Account',
-      resourceId: 'user_12345',
-      severity: 'info',
-      status: 'success',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          email: 'john.doe@company.com',
-          role: 'Employee',
-          department: 'Engineering'
-        },
-        metadata: {
-          sessionId: 'sess_abc123',
-          requestId: 'req_xyz789'
-        }
-      },
-      description: 'New user account created for John Doe in Engineering department'
-    },
-    {
-      id: 2,
-      timestamp: '2024-01-15 14:25:18',
-      user: 'hr.manager@company.com',
-      userName: 'Sarah Johnson',
-      action: 'Permission Modified',
-      category: 'Security',
-      resource: 'Role Permissions',
-      resourceId: 'role_hr_manager',
-      severity: 'warning',
-      status: 'success',
-      ipAddress: '192.168.1.105',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          permissions: ['user.create', 'user.edit', 'reports.view'],
-          previousPermissions: ['user.edit', 'reports.view']
-        },
-        metadata: {
-          sessionId: 'sess_def456',
-          requestId: 'req_uvw012'
-        }
-      },
-      description: 'HR Manager role permissions updated - added user creation permission'
-    },
-    {
-      id: 3,
-      timestamp: '2024-01-15 14:20:42',
-      user: 'system',
-      userName: 'System Process',
-      action: 'Database Backup',
-      category: 'System',
-      resource: 'Database',
-      resourceId: 'db_main',
-      severity: 'info',
-      status: 'success',
-      ipAddress: 'localhost',
-      userAgent: 'System/1.0',
-      details: {
-        changes: {
-          backupSize: '2.4 GB',
-          backupLocation: '/backups/db_main_20240115_142042.sql',
-          duration: '45 seconds'
-        },
-        metadata: {
-          jobId: 'backup_job_001',
-          scheduledBy: 'system_scheduler'
-        }
-      },
-      description: 'Automated database backup completed successfully'
-    },
-    {
-      id: 4,
-      timestamp: '2024-01-15 14:15:33',
-      user: 'john.doe@company.com',
-      userName: 'John Doe',
-      action: 'Login Failed',
-      category: 'Authentication',
-      resource: 'User Session',
-      resourceId: 'user_67890',
-      severity: 'error',
-      status: 'failed',
-      ipAddress: '192.168.1.110',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          reason: 'Invalid password',
-          attemptCount: 3,
-          lockoutTriggered: false
-        },
-        metadata: {
-          sessionId: null,
-          requestId: 'req_ghi345'
-        }
-      },
-      description: 'Failed login attempt - invalid password provided'
-    },
-    {
-      id: 5,
-      timestamp: '2024-01-15 14:10:15',
-      user: 'admin@company.com',
-      userName: 'System Admin',
-      action: 'Settings Updated',
-      category: 'Configuration',
-      resource: 'System Settings',
-      resourceId: 'settings_security',
-      severity: 'warning',
-      status: 'success',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          passwordPolicy: {
-            minLength: 12,
-            requireSpecialChars: true,
-            maxAge: 90
-          },
-          previousPasswordPolicy: {
-            minLength: 8,
-            requireSpecialChars: false,
-            maxAge: 180
-          }
-        },
-        metadata: {
-          sessionId: 'sess_jkl678',
-          requestId: 'req_mno901'
-        }
-      },
-      description: 'Security settings updated - strengthened password policy'
-    },
-    {
-      id: 6,
-      timestamp: '2024-01-15 14:05:28',
-      user: 'data.analyst@company.com',
-      userName: 'Mike Chen',
-      action: 'Report Generated',
-      category: 'Reporting',
-      resource: 'Analytics Report',
-      resourceId: 'report_employee_analytics',
-      severity: 'info',
-      status: 'success',
-      ipAddress: '192.168.1.115',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          reportType: 'Employee Analytics',
-          dateRange: '2024-01-01 to 2024-01-15',
-          recordCount: 1247,
-          exportFormat: 'PDF'
-        },
-        metadata: {
-          sessionId: 'sess_pqr234',
-          requestId: 'req_stu567'
-        }
-      },
-      description: 'Employee analytics report generated and exported to PDF'
-    },
-    {
-      id: 7,
-      timestamp: '2024-01-15 14:00:12',
-      user: 'system',
-      userName: 'System Process',
-      action: 'Data Cleanup',
-      category: 'Maintenance',
-      resource: 'Database',
-      resourceId: 'db_temp_data',
-      severity: 'info',
-      status: 'success',
-      ipAddress: 'localhost',
-      userAgent: 'System/1.0',
-      details: {
-        changes: {
-          recordsDeleted: 15420,
-          tablesAffected: ['temp_sessions', 'expired_tokens', 'old_logs'],
-          spaceFreed: '1.2 GB'
-        },
-        metadata: {
-          jobId: 'cleanup_job_002',
-          scheduledBy: 'system_scheduler'
-        }
-      },
-      description: 'Automated data cleanup completed - removed expired temporary data'
-    },
-    {
-      id: 8,
-      timestamp: '2024-01-15 13:55:45',
-      user: 'security.admin@company.com',
-      userName: 'Alex Wilson',
-      action: 'User Suspended',
-      category: 'Security',
-      resource: 'User Account',
-      resourceId: 'user_54321',
-      severity: 'critical',
-      status: 'success',
-      ipAddress: '192.168.1.120',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      details: {
-        changes: {
-          suspensionReason: 'Multiple failed login attempts',
-          suspensionDuration: '24 hours',
-          previousStatus: 'active'
-        },
-        metadata: {
-          sessionId: 'sess_vwx890',
-          requestId: 'req_yza123'
-        }
-      },
-      description: 'User account suspended due to multiple failed login attempts'
+  // Fetch audit logs from API
+  const fetchAuditLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchQuery || undefined,
+        severity: selectedSeverity !== 'all' ? selectedSeverity : undefined,
+        category: getCategoryFromTab(activeTab)
+      };
+
+      // Add date range filter
+      if (selectedDateRange !== 'all') {
+        const dateRange = getDateRange(selectedDateRange);
+        if (dateRange.startDate) params.startDate = dateRange.startDate;
+        if (dateRange.endDate) params.endDate = dateRange.endDate;
+      }
+
+      const response = await publicAuditLogService.getAuditLogs(params);
+      
+      if (response.success) {
+        setAuditLogs(response.data);
+        // Only update pagination properties that don't trigger useEffect
+        setPagination(prev => ({
+          ...prev,
+          total: response.pagination.total,
+          pages: response.pagination.pages,
+          limit: response.pagination.limit
+          // Don't update 'page' here to avoid infinite loop
+        }));
+      } else {
+        setError('Failed to fetch audit logs');
+      }
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      setError('Failed to fetch audit logs');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  // Mock data for statistics
-  const mockStats = {
-    totalLogs: 15420,
-    todayLogs: 89,
-    criticalEvents: 3,
-    failedLogins: 12,
-    systemEvents: 45,
-    userActions: 67
   };
 
+  // Fetch audit log statistics
+  const fetchStats = async () => {
+    try {
+      const response = await publicAuditLogService.getAuditLogStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // Helper function to get category from active tab
+  const getCategoryFromTab = (tab) => {
+    switch (tab) {
+      case 'security': return 'Security';
+      case 'system': return 'System';
+      case 'user': return 'User Management';
+      case 'errors': return undefined; // Will filter by status instead
+      default: return undefined;
+    }
+  };
+
+  // Helper function to get date range
+  const getDateRange = (range) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (range) {
+      case 'today':
+        return { startDate: today.toISOString(), endDate: now.toISOString() };
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return { startDate: weekAgo.toISOString(), endDate: now.toISOString() };
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return { startDate: monthAgo.toISOString(), endDate: now.toISOString() };
+      default:
+        return {};
+    }
+  };
+
+  // Load data on component mount and when filters change
+  useEffect(() => {
+    fetchAuditLogs();
+  }, [pagination.page, searchQuery, selectedSeverity, activeTab, selectedDateRange]);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const handleRefresh = () => {
+    fetchAuditLogs();
+    fetchStats();
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
   const StatCard = ({ title, value, icon: Icon, color = 'indigo', trend, suffix = '' }) => (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
       <div className="flex items-center justify-between">
@@ -308,23 +199,6 @@ const AuditLogs = () => {
     setShowLogDetails(true);
   };
 
-  const filteredLogs = mockLogs.filter(log => {
-    const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         log.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesTab = activeTab === 'all' || 
-                      (activeTab === 'security' && ['Security', 'Authentication'].includes(log.category)) ||
-                      (activeTab === 'system' && ['System', 'Maintenance', 'Configuration'].includes(log.category)) ||
-                      (activeTab === 'user' && log.category === 'User Management') ||
-                      (activeTab === 'errors' && log.status === 'failed');
-    
-    const matchesSeverity = selectedSeverity === 'all' || log.severity === selectedSeverity;
-    const matchesUser = selectedUser === 'all' || log.user === selectedUser;
-    
-    return matchesSearch && matchesTab && matchesSeverity && matchesUser;
-  });
-
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -335,8 +209,12 @@ const AuditLogs = () => {
             <p className="text-gray-400 mt-2">Monitor system activities and security events</p>
           </div>
           <div className="flex space-x-3">
-            <button className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-700 flex items-center space-x-2">
-              <RefreshCw className="h-4 w-4" />
+            <button 
+              onClick={handleRefresh}
+              disabled={loading}
+              className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-700 flex items-center space-x-2 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
             <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
@@ -350,42 +228,42 @@ const AuditLogs = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           <StatCard
             title="Total Logs"
-            value={mockStats.totalLogs.toLocaleString()}
+            value={stats.totalLogs?.toLocaleString() || '0'}
             icon={FileText}
             color="blue"
             trend={5}
           />
           <StatCard
             title="Today's Logs"
-            value={mockStats.todayLogs}
+            value={stats.todayLogs || '0'}
             icon={Clock}
             color="green"
             trend={12}
           />
           <StatCard
             title="Critical Events"
-            value={mockStats.criticalEvents}
+            value={stats.criticalEvents || '0'}
             icon={AlertTriangle}
             color="red"
             trend={-25}
           />
           <StatCard
             title="Failed Logins"
-            value={mockStats.failedLogins}
+            value={stats.failedLogins || '0'}
             icon={XCircle}
             color="yellow"
             trend={-8}
           />
           <StatCard
             title="System Events"
-            value={mockStats.systemEvents}
+            value={stats.systemEvents || '0'}
             icon={Settings}
             color="purple"
             trend={15}
           />
           <StatCard
             title="User Actions"
-            value={mockStats.userActions}
+            value={stats.userActions || '0'}
             icon={User}
             color="indigo"
             trend={18}
@@ -514,50 +392,73 @@ const AuditLogs = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {filteredLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-750">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-white">{log.timestamp}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-8 w-8">
-                              <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                                <User className="h-4 w-4 text-white" />
-                              </div>
-                            </div>
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-white">{log.userName}</div>
-                              <div className="text-sm text-gray-400">{log.user}</div>
-                            </div>
+                    {loading ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-12 text-center">
+                          <div className="flex items-center justify-center">
+                            <RefreshCw className="h-6 w-6 text-gray-400 animate-spin mr-2" />
+                            <span className="text-gray-400">Loading audit logs...</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-white">{log.action}</div>
-                          <div className="text-sm text-gray-400">{log.resource}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <CategoryIcon category={log.category} />
-                            <span className="text-sm text-white">{log.category}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <SeverityBadge severity={log.severity} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge status={log.status} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleViewDetails(log)}
-                            className="text-indigo-400 hover:text-indigo-300 mr-3"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
                         </td>
                       </tr>
-                    ))}
+                    ) : error ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-12 text-center">
+                          <div className="text-red-400">{error}</div>
+                        </td>
+                      </tr>
+                    ) : auditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-12 text-center">
+                          <div className="text-gray-400">No audit logs found</div>
+                        </td>
+                      </tr>
+                    ) : (
+                      auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-gray-750">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-white">{new Date(log.timestamp).toLocaleString()}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-8 w-8">
+                                <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                                  <User className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                              <div className="ml-3">
+                                <div className="text-sm font-medium text-white">{log.user?.name || 'System'}</div>
+                                <div className="text-sm text-gray-400">{log.user?.email || 'system@hrms.com'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-white">{log.action}</div>
+                            <div className="text-sm text-gray-400">{log.resource}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2">
+                              <CategoryIcon category={log.category} />
+                              <span className="text-sm text-white">{log.category}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <SeverityBadge severity={log.severity} />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <StatusBadge status={log.status} />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleViewDetails(log)}
+                              className="text-indigo-400 hover:text-indigo-300 mr-3"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -565,16 +466,42 @@ const AuditLogs = () => {
               {/* Pagination */}
               <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
                 <div className="text-sm text-gray-400">
-                  Showing {filteredLogs.length} of {mockLogs.length} logs
+                  Showing {auditLogs.length} of {pagination.total || 0} logs
                 </div>
                 <div className="flex space-x-2">
-                  <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">
+                  <button 
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Previous
                   </button>
-                  <button className="px-3 py-1 bg-indigo-600 text-white rounded text-sm">1</button>
-                  <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">2</button>
-                  <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">3</button>
-                  <button className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, pagination.totalPages || 1) }, (_, i) => {
+                    const pageNum = Math.max(1, pagination.page - 2) + i;
+                    if (pageNum > (pagination.totalPages || 1)) return null;
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-1 rounded text-sm ${
+                          pageNum === pagination.page
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-700 hover:bg-gray-600 text-white'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button 
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= (pagination.totalPages || 1)}
+                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Next
                   </button>
                 </div>
@@ -602,91 +529,6 @@ const AuditLogs = () => {
                 </button>
               </div>
             </div>
-
-            {/* Log Categories */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
-              <div className="space-y-3">
-                {[
-                  { name: 'User Management', count: 45, color: 'blue' },
-                  { name: 'Security', count: 23, color: 'red' },
-                  { name: 'System', count: 67, color: 'green' },
-                  { name: 'Authentication', count: 34, color: 'yellow' },
-                  { name: 'Configuration', count: 12, color: 'purple' },
-                  { name: 'Reporting', count: 18, color: 'indigo' }
-                ].map((category) => (
-                  <div key={category.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full bg-${category.color}-500`}></div>
-                      <span className="text-white text-sm">{category.name}</span>
-                    </div>
-                    <span className="text-gray-400 text-sm">{category.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Alerts */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Recent Alerts</h3>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-red-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">Multiple failed logins detected</p>
-                    <p className="text-xs text-gray-400">5 minutes ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">High system resource usage</p>
-                    <p className="text-xs text-gray-400">15 minutes ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">Database backup completed</p>
-                    <p className="text-xs text-gray-400">1 hour ago</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* System Health */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">System Health</h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-gray-400">CPU Usage</span>
-                    <span className="text-sm text-white">45%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '45%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-gray-400">Memory Usage</span>
-                    <span className="text-sm text-white">67%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '67%' }}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-gray-400">Disk Usage</span>
-                    <span className="text-sm text-white">23%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: '23%' }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -698,7 +540,7 @@ const AuditLogs = () => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-xl font-semibold text-white">Log Details</h3>
-                <p className="text-gray-400">{selectedLog.action} - {selectedLog.timestamp}</p>
+                <p className="text-gray-400">{selectedLog.action} - {new Date(selectedLog.timestamp).toLocaleString()}</p>
               </div>
               <button
                 onClick={() => setShowLogDetails(false)}
@@ -716,11 +558,15 @@ const AuditLogs = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-400">User:</span>
-                      <span className="text-white">{selectedLog.userName}</span>
+                      <span className="text-white">{selectedLog.user?.name || 'System'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Email:</span>
-                      <span className="text-white">{selectedLog.user}</span>
+                      <span className="text-white">{selectedLog.user?.email || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Employee ID:</span>
+                      <span className="text-white">{selectedLog.user?.employeeId || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Action:</span>
@@ -732,11 +578,11 @@ const AuditLogs = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Resource:</span>
-                      <span className="text-white">{selectedLog.resource}</span>
+                      <span className="text-white">{selectedLog.resource || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Resource ID:</span>
-                      <span className="text-white font-mono text-sm">{selectedLog.resourceId}</span>
+                      <span className="text-white font-mono text-sm">{selectedLog.resourceId || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Severity:</span>
@@ -757,19 +603,19 @@ const AuditLogs = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-400">IP Address:</span>
-                      <span className="text-white font-mono text-sm">{selectedLog.ipAddress}</span>
+                      <span className="text-white font-mono text-sm">{selectedLog.ipAddress || 'N/A'}</span>
                     </div>
                     <div>
                       <span className="text-gray-400 block mb-1">User Agent:</span>
-                      <span className="text-white text-sm break-all">{selectedLog.userAgent}</span>
+                      <span className="text-white text-sm break-all">{selectedLog.userAgent || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Session ID:</span>
-                      <span className="text-white font-mono text-sm">{selectedLog.details.metadata.sessionId || 'N/A'}</span>
+                      <span className="text-gray-400">Timestamp:</span>
+                      <span className="text-white font-mono text-sm">{new Date(selectedLog.timestamp).toISOString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Request ID:</span>
-                      <span className="text-white font-mono text-sm">{selectedLog.details.metadata.requestId}</span>
+                      <span className="text-gray-400">Log ID:</span>
+                      <span className="text-white font-mono text-sm">{selectedLog.id}</span>
                     </div>
                   </div>
                 </div>
@@ -779,18 +625,23 @@ const AuditLogs = () => {
             {/* Description */}
             <div className="mt-6">
               <h4 className="text-lg font-medium text-white mb-3">Description</h4>
-              <p className="text-gray-300 bg-gray-750 p-4 rounded-lg">{selectedLog.description}</p>
+              <p className="text-gray-300 bg-gray-750 p-4 rounded-lg">{selectedLog.description || 'No description available'}</p>
             </div>
 
-            {/* Changes */}
-            <div className="mt-6">
-              <h4 className="text-lg font-medium text-white mb-3">Changes</h4>
-              <div className="bg-gray-750 p-4 rounded-lg">
-                <pre className="text-sm text-gray-300 whitespace-pre-wrap">
-                  {JSON.stringify(selectedLog.details.changes, null, 2)}
-                </pre>
+            {/* Additional Details */}
+            {selectedLog.details && (
+              <div className="mt-6">
+                <h4 className="text-lg font-medium text-white mb-3">Additional Details</h4>
+                <div className="bg-gray-750 p-4 rounded-lg">
+                  <pre className="text-sm text-gray-300 whitespace-pre-wrap">
+                    {typeof selectedLog.details === 'string' 
+                      ? selectedLog.details 
+                      : JSON.stringify(selectedLog.details, null, 2)
+                    }
+                  </pre>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end space-x-3 mt-6">
               <button

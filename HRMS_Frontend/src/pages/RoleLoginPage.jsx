@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // import { MOCK_LOGIN } from "../mocks/MOCK_LOGIN"; // --- REMOVED ---
 import { motion } from "framer-motion";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RoleLoginPage() {
   const { role } = useParams(); // e.g., 'hr', 'admin'
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false); // Added loading state
 
@@ -98,15 +100,25 @@ export default function RoleLoginPage() {
             className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition disabled:opacity-50"
             required
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoading} // Disable input while loading
-            className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition disabled:opacity-50"
-            required
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading} // Disable input while loading
+              className="w-full px-4 py-3 pr-12 rounded-lg bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition disabled:opacity-50"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+              disabled={isLoading}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
 
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 

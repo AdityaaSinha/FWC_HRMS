@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Audit Logs Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Test Audit Logs API Fix</h1>
+    <button onclick="testAuditLogs()">Test Audit Logs</button>
+    <button onclick="testAuditStats()">Test Audit Stats</button>
+    <div id="results"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001/api/public';
+
+        async function testAuditLogs() {
+            const resultsDiv = document.getElementById('results');
+            try {
+                console.log('Testing audit logs API...');
+                const response = await fetch(`${API_BASE_URL}/audit-logs`);
+                const data = await response.json();
+                
+                console.log('Response:', data);
+                
+                if (data.success) {
+                    resultsDiv.innerHTML += `<div class="result success">
+                        ✅ Audit Logs API Working!<br>
+                        Success: ${data.success}<br>
+                        Data Length: ${data.data?.length || 0}<br>
+                        Pagination: ${JSON.stringify(data.pagination)}
+                    </div>`;
+                } else {
+                    resultsDiv.innerHTML += `<div class="result error">
+                        ❌ API returned success: false<br>
+                        Error: ${data.error || 'Unknown error'}
+                    </div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.innerHTML += `<div class="result error">
+                    ❌ Network Error: ${error.message}
+                </div>`;
+            }
+        }
+
+        async function testAuditStats() {
+            const resultsDiv = document.getElementById('results');
+            try {
+                console.log('Testing audit stats API...');
+                const response = await fetch(`${API_BASE_URL}/audit-logs/stats`);
+                const data = await response.json();
+                
+                console.log('Stats Response:', data);
+                
+                if (data.success) {
+                    resultsDiv.innerHTML += `<div class="result success">
+                        ✅ Audit Stats API Working!<br>
+                        Success: ${data.success}<br>
+                        Stats: ${JSON.stringify(data.data)}
+                    </div>`;
+                } else {
+                    resultsDiv.innerHTML += `<div class="result error">
+                        ❌ Stats API returned success: false<br>
+                        Error: ${data.error || 'Unknown error'}
+                    </div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.innerHTML += `<div class="result error">
+                    ❌ Network Error: ${error.message}
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+</head>
+<body>
+    <h1>Test Login</h1>
+    <button onclick="testLogin()">Login as HR User</button>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            try {
+                const response = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'h@h.com',
+                        password: '12'
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Login response:', data);
+
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('role', data.role);
+                    localStorage.setItem('userName', data.name);
+                    document.getElementById('result').innerHTML = 'Login successful! Token saved.';
+                    console.log('Token saved:', data.token);
+                    
+                    // Redirect to HR employees page
+                    setTimeout(() => {
+                        window.location.href = '/hr/employees';
+                    }, 1000);
+                } else {
+                    document.getElementById('result').innerHTML = 'Login failed: ' + JSON.stringify(data);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('result').innerHTML = 'Login error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

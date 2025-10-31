@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getDepartmentNames } from '../../utils/departmentData';
 import { 
   Users, 
   Search, 
@@ -19,6 +20,7 @@ import {
   Download,
   BarChart3
 } from 'lucide-react';
+import Avatar from '../../components/common/Avatar';
 
 const ManagerTeamOverview = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,7 +38,7 @@ const ManagerTeamOverview = () => {
       position: 'Senior Developer',
       department: 'Engineering',
       location: 'New York',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+      user: { id: 'john-smith', name: 'John Smith', email: 'john.smith@company.com' },
       performance: 92,
       performanceTrend: 'up',
       tasksCompleted: 45,
@@ -56,7 +58,7 @@ const ManagerTeamOverview = () => {
       position: 'UX Designer',
       department: 'Design',
       location: 'San Francisco',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+      user: { id: 'sarah-johnson', name: 'Sarah Johnson', email: 'sarah.johnson@company.com' },
       performance: 88,
       performanceTrend: 'up',
       tasksCompleted: 38,
@@ -76,7 +78,7 @@ const ManagerTeamOverview = () => {
       position: 'Data Analyst',
       department: 'Analytics',
       location: 'Chicago',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      user: { id: 'mike-chen', name: 'Mike Chen', email: 'mike.chen@company.com' },
       performance: 85,
       performanceTrend: 'down',
       tasksCompleted: 32,
@@ -96,7 +98,7 @@ const ManagerTeamOverview = () => {
       position: 'Marketing Specialist',
       department: 'Marketing',
       location: 'Austin',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+      user: { id: 'emily-davis', name: 'Emily Davis', email: 'emily.davis@company.com' },
       performance: 90,
       performanceTrend: 'up',
       tasksCompleted: 28,
@@ -110,7 +112,7 @@ const ManagerTeamOverview = () => {
     }
   ]);
 
-  const departments = ['all', 'Engineering', 'Design', 'Analytics', 'Marketing'];
+  const departments = ['all', ...getDepartmentNames()];
 
   const filteredTeam = teamMembers.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -279,10 +281,11 @@ const ManagerTeamOverview = () => {
           <div key={member.id} className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:shadow-lg hover:shadow-gray-900/50 transition">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-12 h-12 rounded-full object-cover"
+                <Avatar
+                  user={member.user}
+                  name={member.name}
+                  size={48}
+                  className="rounded-full"
                 />
                 <div>
                   <h3 className="font-semibold text-white">{member.name}</h3>
@@ -380,10 +383,11 @@ const ManagerTeamOverview = () => {
             <div className="p-6">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={selectedEmployee.avatar}
-                    alt={selectedEmployee.name}
-                    className="w-16 h-16 rounded-full object-cover"
+                  <Avatar
+                    user={selectedEmployee.user}
+                    name={selectedEmployee.name}
+                    size={64}
+                    className="rounded-full"
                   />
                   <div>
                     <h2 className="text-xl font-bold text-white">{selectedEmployee.name}</h2>

@@ -17,11 +17,11 @@ const MOCK_ATTENDANCE_DATA = {
     averageHours: '8h 15m'
   },
   recentHistory: [
-    { date: '2024-12-20', checkIn: '09:15 AM', checkOut: '06:30 PM', hours: '8h 30m', status: 'present' },
-    { date: '2024-12-19', checkIn: '09:45 AM', checkOut: '06:15 PM', hours: '7h 45m', status: 'late' },
-    { date: '2024-12-18', checkIn: '09:00 AM', checkOut: '06:00 PM', hours: '8h 15m', status: 'present' },
-    { date: '2024-12-17', checkIn: null, checkOut: null, hours: '0h', status: 'absent' },
-    { date: '2024-12-16', checkIn: '09:10 AM', checkOut: '06:20 PM', hours: '8h 25m', status: 'present' }
+    { date: '2025-12-20', checkIn: '09:15 AM', checkOut: '06:30 PM', hours: '8h 30m', status: 'present' },
+    { date: '2025-12-19', checkIn: '09:45 AM', checkOut: '06:15 PM', hours: '7h 45m', status: 'late' },
+    { date: '2025-12-18', checkIn: '09:00 AM', checkOut: '06:00 PM', hours: '8h 15m', status: 'present' },
+    { date: '2025-12-17', checkIn: null, checkOut: null, hours: '0h', status: 'absent' },
+    { date: '2025-12-16', checkIn: '09:10 AM', checkOut: '06:20 PM', hours: '8h 25m', status: 'present' }
   ],
   weeklyChart: [
     { day: 'Mon', hours: 8.5 },

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Edit3, Save, X, Camera, Shield, Award, Briefcase, Clock } from 'lucide-react';
+import { generateAvatarUrl, generateInitials, getGenderAvatarDemo } from '../../utils/avatarUtils';
+import { useUser } from '../../contexts/UserContext';
 
 const MOCK_PROFILE = {
   id: 'EMP001',
@@ -13,6 +15,7 @@ const MOCK_PROFILE = {
   employeeId: 'EMP001',
   manager: 'Rajesh Kumar',
   profilePicture: null,
+  gender: 'male', // Added gender field
   skills: ['React', 'Node.js', 'Python', 'AWS', 'Docker'],
   achievements: [
     { title: 'Employee of the Month', date: '2024-11', icon: '🏆' },
@@ -28,14 +31,54 @@ const MOCK_PROFILE = {
 };
 
 export default function EmployeeProfile() {
-  const [profile, setProfile] = useState({
+  const { user: contextUser, loading, error } = useUser();
+  
+  // Merge context user data with mock data for additional fields
+  const initialProfile = contextUser ? {
     ...MOCK_PROFILE,
-    name: 'Aryabrat Mishra',
-    email: 'aryabrat.mishra@company.com'
-  });
+    name: contextUser.name,
+    email: contextUser.email,
+    employeeId: contextUser.employeeId || contextUser.id,
+    id: contextUser.employeeId || contextUser.id,
+    role: contextUser.role,
+    gender: 'male' // Default gender, can be updated later
+  } : MOCK_PROFILE;
+
+  const [profile, setProfile] = useState(initialProfile);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState(profile);
+  const [editedProfile, setEditedProfile] = useState(initialProfile);
   const [activeTab, setActiveTab] = useState('personal');
+  const [newSkill, setNewSkill] = useState('');
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
+  const [customProfilePicture, setCustomProfilePicture] = useState(null);
+
+  // Update profile when context user changes
+  useEffect(() => {
+    if (contextUser) {
+      const updatedProfile = {
+        ...MOCK_PROFILE,
+        name: contextUser.name,
+        email: contextUser.email,
+        employeeId: contextUser.employeeId || contextUser.id,
+        id: contextUser.employeeId || contextUser.id,
+        role: contextUser.role,
+        gender: 'male' // Default gender, can be updated later
+      };
+      setProfile(updatedProfile);
+      setEditedProfile(updatedProfile);
+    }
+  }, [contextUser]);
+
+  // Demo: Log gender-specific avatar URLs
+  useEffect(() => {
+    const avatarDemo = getGenderAvatarDemo(profile);
+    console.log('🎭 Gender-Specific Avatar Demo for', profile.name);
+    console.log('📸 Current (with gender):', avatarDemo.withGender);
+    console.log('🔄 Without gender:', avatarDemo.withoutGender);
+    console.log('👨 Force Male:', avatarDemo.forceMale);
+    console.log('👩 Force Female:', avatarDemo.forceFemale);
+    console.log('🤖 Auto-detected:', avatarDemo.autoDetected);
+  }, [profile.name, profile.gender]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -59,6 +102,72 @@ export default function EmployeeProfile() {
     }));
   };
 
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !profile.skills.includes(newSkill.trim())) {
+      setProfile(prev => ({
+        ...prev,
+        skills: [...prev.skills, newSkill.trim()]
+      }));
+      setNewSkill('');
+      setIsAddingSkill(false);
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setProfile(prev => ({
+      ...prev,
+      skills: prev.skills.filter(skill => skill !== skillToRemove)
+    }));
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleAddSkill();
+    } else if (e.key === 'Escape') {
+      setNewSkill('');
+      setIsAddingSkill(false);
+    }
+  };
+
+  // Photo upload functionality
+  const handlePhotoUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should be less than 5MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCustomProfilePicture(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setCustomProfilePicture(null);
+  };
+
+  // Get the current profile picture source
+  const getProfilePictureSource = () => {
+    if (customProfilePicture) {
+      return customProfilePicture;
+    }
+    if (profile.profilePicture) {
+      return profile.profilePicture;
+    }
+    return generateAvatarUrl(profile);
+  };
+
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: User },
     { id: 'professional', label: 'Professional', icon: Briefcase },
@@ -74,15 +183,49 @@ export default function EmployeeProfile() {
             {/* Profile Picture Section */}
             <div className="relative group">
               <div className="w-32 h-32 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-full border-4 border-indigo-500/30 flex items-center justify-center overflow-hidden">
-                {profile.profilePicture ? (
-                  <img src={profile.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={48} className="text-indigo-400" />
-                )}
+                <img 
+                  src={getProfilePictureSource()} 
+                  alt={profile.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to initials if image fails to load
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div 
+                  className="w-full h-full bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-full flex items-center justify-center text-2xl font-bold text-indigo-400"
+                  style={{ display: 'none' }}
+                >
+                  {generateInitials(profile.name)}
+                </div>
               </div>
-              <button className="absolute bottom-2 right-2 bg-indigo-600 hover:bg-indigo-700 rounded-full p-2 transition-colors opacity-0 group-hover:opacity-100">
+              
+              {/* Photo Upload Button */}
+              <input
+                type="file"
+                id="photo-upload"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              <label
+                htmlFor="photo-upload"
+                className="absolute bottom-2 right-2 bg-indigo-600 hover:bg-indigo-700 rounded-full p-2 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+              >
                 <Camera size={16} className="text-white" />
-              </button>
+              </label>
+              
+              {/* Remove Photo Button (only show if custom photo exists) */}
+              {customProfilePicture && (
+                <button
+                  onClick={handleRemovePhoto}
+                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 rounded-full p-1 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Remove custom photo"
+                >
+                  <X size={12} className="text-white" />
+                </button>
+              )}
             </div>
 
             {/* Profile Info */}
@@ -248,20 +391,62 @@ export default function EmployeeProfile() {
                 Skills & Expertise
               </h3>
               
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-full text-sm text-indigo-300"
-                  >
-                    {skill}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {profile.skills && profile.skills.length > 0 ? (
+                  profile.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-full text-sm text-indigo-300 flex items-center gap-2 group"
+                    >
+                      {skill}
+                      <button
+                        onClick={() => handleRemoveSkill(skill)}
+                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <div className="text-gray-400 text-sm">No skills added yet</div>
+                )}
               </div>
 
-              <button className="mt-4 text-indigo-400 hover:text-indigo-300 text-sm font-medium">
-                + Add Skill
-              </button>
+              {isAddingSkill ? (
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter skill name..."
+                    className="flex-1 bg-[#2A2D3D] border border-gray-600 rounded-lg px-3 py-2 text-gray-100 text-sm focus:border-indigo-500 focus:outline-none"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleAddSkill}
+                    className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewSkill('');
+                      setIsAddingSkill(false);
+                    }}
+                    className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+                  onClick={() => setIsAddingSkill(true)}
+                >
+                  + Add Skill
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend Audit Logs</title>
+</head>
+<body>
+    <h1>Frontend Audit Logs Test</h1>
+    <div id="status">Testing...</div>
+    <div id="results"></div>
+
+    <script>
+        async function testAuditLogs() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // First, check if we have a token
+                const token = localStorage.getItem('token');
+                console.log('Token from localStorage:', token ? 'Present' : 'Missing');
+                
+                if (!token) {
+                    statusDiv.innerHTML = '❌ No authentication token found in localStorage';
+                    return;
+                }
+
+                // Test the audit logs API
+                statusDiv.innerHTML = '🔍 Testing audit logs API...';
+                
+                const response = await fetch('http://localhost:3001/api/audit-logs', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = '✅ Audit logs fetched successfully!';
+                    resultsDiv.innerHTML = `
+                        <h3>Results:</h3>
+                        <p>Total logs: ${data.pagination?.total || 0}</p>
+                        <p>Current page: ${data.pagination?.page || 1}</p>
+                        <p>Logs in response: ${data.data?.length || 0}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    statusDiv.innerHTML = `❌ API call failed: ${response.status}`;
+                    resultsDiv.innerHTML = `<pre>Error: ${errorText}</pre>`;
+                }
+
+            } catch (error) {
+                console.error('Test error:', error);
+                statusDiv.innerHTML = `❌ Test failed: ${error.message}`;
+                resultsDiv.innerHTML = `<pre>Error: ${error.stack}</pre>`;
+            }
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', testAuditLogs);
+    </script>
+</body>
+</html>

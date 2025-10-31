@@ -71,13 +71,45 @@ router.get("/recent-employees", authMiddleware, isAdmin, async (req, res) => {
    ========================================================= */
 router.get("/activity/daily", authMiddleware, isAdmin, async (req, res) => {
   try {
-    const activities = await prisma.loginActivity.groupBy({
-      by: ["hour"],
-      _count: true,
+    // Get login activities for the last 24 hours, grouped by hour
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const activities = await prisma.loginActivity.findMany({
+      where: {
+        timestamp: {
+          gte: yesterday,
+          lte: now
+        }
+      },
+      select: {
+        timestamp: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
     });
 
-    res.json({ dailyActivity: activities });
+    // Group by hour
+    const hourlyData = Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      count: 0,
+      users: []
+    }));
+
+    activities.forEach(activity => {
+      const hour = activity.timestamp.getHours();
+      hourlyData[hour].count++;
+      hourlyData[hour].users.push(activity.user);
+    });
+
+    res.json({ dailyActivity: hourlyData });
   } catch (error) {
+    console.error("Daily activity error:", error);
     res.status(500).json({ error: "Failed to fetch daily activity" });
   }
 });
@@ -87,13 +119,45 @@ router.get("/activity/daily", authMiddleware, isAdmin, async (req, res) => {
    ========================================================= */
 router.get("/activity/weekly", authMiddleware, isAdmin, async (req, res) => {
   try {
-    const activities = await prisma.loginActivity.groupBy({
-      by: ["day"],
-      _count: true,
+    // Get login activities for the last 7 days, grouped by day
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    const activities = await prisma.loginActivity.findMany({
+      where: {
+        timestamp: {
+          gte: weekAgo,
+          lte: now
+        }
+      },
+      select: {
+        timestamp: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
     });
 
-    res.json({ weeklyActivity: activities });
+    // Group by day of week
+    const weeklyData = Array.from({ length: 7 }, (_, i) => ({
+      day: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i],
+      count: 0,
+      users: []
+    }));
+
+    activities.forEach(activity => {
+      const dayOfWeek = activity.timestamp.getDay();
+      weeklyData[dayOfWeek].count++;
+      weeklyData[dayOfWeek].users.push(activity.user);
+    });
+
+    res.json({ weeklyActivity: weeklyData });
   } catch (error) {
+    console.error("Weekly activity error:", error);
     res.status(500).json({ error: "Failed to fetch weekly activity" });
   }
 });
@@ -103,32 +167,55 @@ router.get("/activity/weekly", authMiddleware, isAdmin, async (req, res) => {
    ========================================================= */
 router.post("/users/bulk-import", authMiddleware, isAdmin, async (req, res) => {
   try {
-    const { users } = req.body;
+    const { users, fileName } = req.body;
     if (!users?.length) return res.status(400).json({ error: "No users provided" });
 
-    const createdUsers = await prisma.$transaction(
-      users.map((u) =>
-        prisma.user.create({
-          data: {
-            name: u.name,
-            email: u.email,
-            role: u.role || "EMPLOYEE",
-            department: u.department || null,
-          },
-        })
-      )
-    );
+    let successfulRecords = 0;
+    let failedRecords = 0;
+    let errors = [];
 
-    // Log import
+    const createdUsers = [];
+    
+    // Process users one by one to track success/failure
+    for (const user of users) {
+      try {
+        const createdUser = await prisma.user.create({
+          data: {
+            name: user.name,
+            email: user.email,
+            employeeId: user.employeeId,
+            password: user.password, // Should be hashed in real implementation
+            role: { connect: { name: user.role || "EMPLOYEE" } },
+            department: user.department || null,
+          },
+        });
+        createdUsers.push(createdUser);
+        successfulRecords++;
+      } catch (error) {
+        failedRecords++;
+        errors.push(`Failed to create user ${user.email}: ${error.message}`);
+      }
+    }
+
+    // Log import with correct field names
     await prisma.importJob.create({
       data: {
-        adminId: req.user.id,
-        count: createdUsers.length,
-        status: "COMPLETED",
+        fileName: fileName || `bulk_import_${new Date().toISOString().split('T')[0]}.csv`,
+        totalRecords: users.length,
+        successfulRecords,
+        failedRecords,
+        errorsJson: errors.length > 0 ? JSON.stringify(errors) : null,
+        importedById: req.user.id,
       },
     });
 
-    res.json({ message: "Bulk import successful", count: createdUsers.length });
+    res.json({ 
+      message: "Bulk import completed", 
+      totalRecords: users.length,
+      successfulRecords,
+      failedRecords,
+      errors: errors.length > 0 ? errors : undefined
+    });
   } catch (error) {
     console.error("Bulk Import Error:", error);
     res.status(500).json({ error: "Bulk import failed" });
@@ -141,16 +228,45 @@ router.post("/users/bulk-import", authMiddleware, isAdmin, async (req, res) => {
 router.get("/users/export", authMiddleware, isAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, department: true, createdAt: true },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        employeeId: true,
+        department: true, 
+        joinDate: true,
+        role: {
+          select: {
+            name: true
+          }
+        }
+      },
     });
+
+    // Transform the data to flatten the role
+    const transformedUsers = users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      employeeId: user.employeeId,
+      role: user.role.name,
+      department: user.department,
+      joinDate: user.joinDate
+    }));
 
     // Log export job
     await prisma.exportJob.create({
-      data: { adminId: req.user.id, count: users.length, status: "COMPLETED" },
+      data: { 
+        exportedById: req.user.id, 
+        fileName: `users_export_${new Date().toISOString().split('T')[0]}.csv`,
+        format: 'CSV',
+        records: transformedUsers.length
+      },
     });
 
-    res.json({ exportedUsers: users });
+    res.json(transformedUsers);
   } catch (error) {
+    console.error("Export error:", error);
     res.status(500).json({ error: "Failed to export users" });
   }
 });
@@ -163,9 +279,33 @@ router.get("/history/imports", authMiddleware, isAdmin, async (req, res) => {
     const imports = await prisma.importJob.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
+      include: {
+        importedBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
     });
-    res.json({ importHistory: imports });
+
+    // Transform data to match frontend expectations
+    const transformedImports = imports.map(importJob => ({
+      id: importJob.id,
+      fileName: importJob.fileName,
+      date: importJob.createdAt.toISOString().split('T')[0],
+      status: importJob.failedRecords > 0 ? 
+        (importJob.successfulRecords > 0 ? 'partial' : 'failed') : 'completed',
+      totalRecords: importJob.totalRecords,
+      successfulRecords: importJob.successfulRecords,
+      failedRecords: importJob.failedRecords,
+      importedBy: importJob.importedBy.name,
+      errors: importJob.errorsJson ? JSON.parse(importJob.errorsJson) : []
+    }));
+
+    res.json(transformedImports);
   } catch (error) {
+    console.error("Import history error:", error);
     res.status(500).json({ error: "Failed to fetch import history" });
   }
 });
@@ -178,9 +318,30 @@ router.get("/history/exports", authMiddleware, isAdmin, async (req, res) => {
     const exports = await prisma.exportJob.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
+      include: {
+        exportedBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
     });
-    res.json({ exportHistory: exports });
+
+    // Transform data to match frontend expectations
+    const transformedExports = exports.map(exportJob => ({
+      id: exportJob.id,
+      fileName: exportJob.fileName,
+      date: exportJob.createdAt.toISOString().split('T')[0],
+      format: exportJob.format,
+      records: exportJob.records,
+      exportedBy: exportJob.exportedBy.name,
+      filters: exportJob.filtersJson ? JSON.parse(exportJob.filtersJson) : null
+    }));
+
+    res.json(transformedExports);
   } catch (error) {
+    console.error("Export history error:", error);
     res.status(500).json({ error: "Failed to fetch export history" });
   }
 });

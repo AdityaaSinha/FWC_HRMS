@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Bell, TrendingUp, Award, Target, ChevronRight, Activity } from 'lucide-react';
 import StatCard from '../../components/StatCard';
 import Card from '../../components/Card';
 import EmployeeLeaveApply from './EmployeeLeaveApply';
 import EmployeeChatbot from './EmployeeChatbot';
+import { useUser } from '../../contexts/UserContext';
 
-// Mock user data
+// Mock user data as fallback
 const MOCK_EMPLOYEE = {
   name: 'Aryabrat Mishra',
+  email: 'aryabrat.mishra@company.com',
+  employeeId: 'EMP001',
   leaveBalance: 12,
   pendingRequests: 1,
   nextReview: '2026-01-15',
@@ -26,7 +30,17 @@ const MOCK_EMPLOYEE = {
 
 export default function EmployeeDashboardHome() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const user = MOCK_EMPLOYEE;
+  const { user: contextUser, loading, error } = useUser();
+  const navigate = useNavigate();
+
+  // Merge context user data with mock data for additional fields
+  const user = contextUser ? {
+    ...MOCK_EMPLOYEE,
+    name: contextUser.name,
+    email: contextUser.email,
+    employeeId: contextUser.employeeId || contextUser.id,
+    role: contextUser.role
+  } : MOCK_EMPLOYEE;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -34,6 +48,36 @@ export default function EmployeeDashboardHome() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Navigation handlers for Quick Links
+  const handleQuickLinkClick = (linkType) => {
+    switch (linkType) {
+      case 'View Payslips':
+        navigate('/employee/payroll');
+        break;
+      case 'Update Profile':
+        navigate('/employee/profile');
+        break;
+      case 'Check Attendance':
+        navigate('/employee/attendance');
+        break;
+      case 'Team Directory':
+        navigate('/employee/team');
+        break;
+      default:
+        console.log(`Navigation for ${linkType} not implemented yet`);
+    }
+  };
+
+  // Handler for View All Activity
+  const handleViewAllActivity = () => {
+    navigate('/employee/activity');
+  };
+
+  // Handler for View Details in performance metrics
+  const handleViewDetails = () => {
+    navigate('/employee/performance');
+  };
 
   const getActivityIcon = (type) => {
     switch (type) {
@@ -147,7 +191,10 @@ export default function EmployeeDashboardHome() {
                 <Award className="text-indigo-400" size={24} />
                 Performance Overview
               </h3>
-              <button className="text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
+              <button 
+                onClick={handleViewDetails}
+                className="text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1"
+              >
                 View Details <ChevronRight size={16} />
               </button>
             </div>
@@ -233,7 +280,10 @@ export default function EmployeeDashboardHome() {
               ))}
             </div>
 
-            <button className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 transition text-sm font-medium">
+            <button 
+              onClick={handleViewAllActivity}
+              className="w-full mt-4 py-2 text-indigo-400 hover:text-indigo-300 transition text-sm font-medium"
+            >
               View All Activity
             </button>
           </Card>
@@ -249,7 +299,11 @@ export default function EmployeeDashboardHome() {
                 { label: 'Check Attendance', icon: '⏰', color: 'text-yellow-400' },
                 { label: 'Team Directory', icon: '👥', color: 'text-purple-400' }
               ].map((link, index) => (
-                <button key={index} className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#2A2D3D]/50 hover:bg-[#2A2D3D] transition-colors text-left">
+                <button 
+                  key={index} 
+                  onClick={() => handleQuickLinkClick(link.label)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#2A2D3D]/50 hover:bg-[#2A2D3D] transition-colors text-left"
+                >
                   <span className="text-lg">{link.icon}</span>
                   <span className={`font-medium ${link.color}`}>{link.label}</span>
                   <ChevronRight size={16} className="ml-auto text-gray-500" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -17,13 +17,37 @@ import {
   Brain,
   PieChart,
   LineChart,
-  Activity
+  Activity,
+  Play,
+  Pause,
+  Settings,
+  FileText,
+  FileSpreadsheet,
+  FileJson
 } from 'lucide-react';
+import aiService from '../../services/aiService';
 
 const ManagerPerformanceAnalytics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedMetric, setSelectedMetric] = useState('overall');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  
+  // Dynamic update states
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
+  const [nextRefresh, setNextRefresh] = useState(null);
+  const [liveUpdates, setLiveUpdates] = useState(true);
+  const [totalAnalyzedItems, setTotalAnalyzedItems] = useState(0);
+  
+  // Export states
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportFormat, setExportFormat] = useState('json');
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
 
   // Mock analytics data
   const [analyticsData] = useState({
@@ -68,61 +92,340 @@ const ManagerPerformanceAnalytics = () => {
       { type: 'goal', message: '3 team members behind on Q2 goals', severity: 'high' },
       { type: 'satisfaction', message: 'Marketing team satisfaction below average', severity: 'medium' }
     ],
-    aiInsights: [
-      {
-        type: 'prediction',
-        title: 'Performance Forecast',
-        insight: 'Based on current trends, team performance is expected to reach 90% by end of quarter.',
-        confidence: 85
-      },
-      {
-        type: 'recommendation',
-        title: 'Resource Optimization',
-        insight: 'Consider redistributing workload from Engineering to Analytics team for better balance.',
-        confidence: 78
-      },
-      {
-        type: 'risk',
-        title: 'Burnout Risk',
-        insight: '2 team members showing signs of potential burnout based on productivity patterns.',
-        confidence: 92
-      }
-    ]
+    // Remove aiInsights from mock data since we'll fetch it from AI
   });
 
-  const handleRefreshData = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 2000);
+  // Fetch AI insights for performance analytics
+  const fetchAiInsights = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    
+    try {
+      // Get insights for a sample employee (in real app, this would be dynamic)
+      const response = await aiService.getPerformanceInsights('123');
+      
+      if (response && response.aiInsights) {
+        // Parse the AI response and format it for display
+        const insights = [];
+        
+        // Add employee context information
+        if (response.employeeData) {
+          insights.push({
+            type: 'info',
+            title: `Performance Analysis for ${response.employeeData.name}`,
+            insight: `Department: ${response.employeeData.department || 'N/A'} | Role: ${response.employeeData.role || 'N/A'} | Performance Score: ${response.employeeData.performanceScore || 'N/A'}`,
+            confidence: 100
+          });
+        }
+        
+        // Add performance forecast
+        if (response.aiInsights.performanceForecast) {
+          insights.push({
+            type: 'prediction',
+            title: 'Performance Forecast',
+            insight: response.aiInsights.performanceForecast,
+            confidence: response.aiInsights.confidence || 85
+          });
+        }
+        
+        // Add recommendations
+        if (response.aiInsights.recommendations && response.aiInsights.recommendations.length > 0) {
+          response.aiInsights.recommendations.forEach((rec, index) => {
+            insights.push({
+              type: 'recommendation',
+              title: `Recommendation ${index + 1}`,
+              insight: rec,
+              confidence: response.aiInsights.confidence || 80
+            });
+          });
+        }
+        
+        // Add risk alerts
+        if (response.aiInsights.riskFactors && response.aiInsights.riskFactors.length > 0) {
+          response.aiInsights.riskFactors.forEach((risk, index) => {
+            insights.push({
+              type: 'risk',
+              title: `Risk Alert ${index + 1}`,
+              insight: risk,
+              confidence: response.aiInsights.confidence || 90
+            });
+          });
+        }
+        
+        // Add generation timestamp
+        if (response.generatedAt) {
+          insights.push({
+            type: 'info',
+            title: 'Analysis Generated',
+            insight: `Last updated: ${new Date(response.generatedAt).toLocaleString()}`,
+            confidence: 100
+          });
+        }
+        
+        setAiInsights(insights);
+      }
+    } catch (error) {
+      console.error('Error fetching AI insights:', error);
+      setAiError('Failed to load AI insights. Please try again.');
+      // Fallback to some default insights
+      setAiInsights([
+        {
+          type: 'info',
+          title: 'AI Insights Unavailable',
+          insight: 'Unable to generate AI insights at this time. Please check your connection and try again.',
+          confidence: 0
+        }
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
-  const handleExportReport = () => {
-    const reportData = {
-      period: selectedPeriod,
-      generatedAt: new Date().toISOString(),
-      kpis: analyticsData.kpis,
-      departments: analyticsData.departmentPerformance,
-      trends: analyticsData.monthlyTrends
-    };
+  // Load AI insights on component mount
+  useEffect(() => {
+    fetchAiInsights();
+    // Initialize total analyzed items
+    setTotalAnalyzedItems(1247); // Starting value
+  }, []);
 
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `performance-report-${selectedPeriod}.json`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  // Auto-refresh functionality
+  useEffect(() => {
+    let interval;
+    if (autoRefresh && refreshInterval > 0) {
+      interval = setInterval(() => {
+        handleRefreshData();
+      }, refreshInterval * 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, refreshInterval]);
+
+  // Countdown timer for next refresh
+  useEffect(() => {
+    let countdown;
+    if (autoRefresh && refreshInterval > 0) {
+      let timeLeft = refreshInterval;
+      countdown = setInterval(() => {
+        timeLeft -= 1;
+        setNextRefresh(timeLeft);
+        if (timeLeft <= 0) {
+          timeLeft = refreshInterval;
+        }
+      }, 1000);
+    } else {
+      setNextRefresh(null);
+    }
+    return () => {
+      if (countdown) clearInterval(countdown);
+    };
+  }, [autoRefresh, refreshInterval, lastUpdated]);
+
+  // Enhanced refresh function with timestamp update
+  const handleRefreshData = useCallback(() => {
+    setIsLoading(true);
+    setLastUpdated(new Date());
+    
+    // Simulate data refresh with random variations
+    const randomVariation = () => Math.random() * 4 - 2; // -2 to +2
+    
+    // Update total analyzed items
+    setTotalAnalyzedItems(prev => prev + Math.floor(Math.random() * 5) + 1);
+    
+    // Refresh AI insights
+    fetchAiInsights();
+    
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+  }, []);
+
+  // Enhanced export functionality
+  const handleExportReport = async (format = exportFormat) => {
+    setExportLoading(true);
+    setShowExportDropdown(false);
+    
+    try {
+      const reportData = {
+        title: 'Performance Analytics Report',
+        period: selectedPeriod,
+        department: selectedDepartment,
+        generatedAt: new Date().toISOString(),
+        lastUpdated: lastUpdated.toISOString(),
+        totalAnalyzedItems,
+        kpis: analyticsData.kpis,
+        departments: analyticsData.departmentPerformance,
+        trends: analyticsData.monthlyTrends,
+        topPerformers: analyticsData.topPerformers,
+        riskAlerts: analyticsData.riskAlerts,
+        aiInsights: aiInsights.map(insight => ({
+          type: insight.type,
+          title: insight.title,
+          insight: insight.insight,
+          confidence: insight.confidence
+        }))
+      };
+
+      let blob, filename, mimeType;
+
+      switch (format) {
+        case 'json':
+          blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+          filename = `performance-analytics-${selectedPeriod}-${Date.now()}.json`;
+          mimeType = 'application/json';
+          break;
+        
+        case 'csv':
+          // Convert to CSV format
+          const csvData = [
+            ['Metric', 'Value', 'Trend'],
+            ['Overall Performance', `${analyticsData.kpis.overallPerformance}%`, `${analyticsData.kpis.performanceTrend}%`],
+            ['Team Productivity', `${analyticsData.kpis.teamProductivity}%`, `${analyticsData.kpis.productivityTrend}%`],
+            ['Goal Completion', `${analyticsData.kpis.goalCompletion}%`, `${analyticsData.kpis.goalTrend}%`],
+            ['Employee Satisfaction', `${analyticsData.kpis.employeeSatisfaction}/5`, `${analyticsData.kpis.satisfactionTrend}`],
+            [],
+            ['Department', 'Performance', 'Employees', 'Goals Completed', 'Total Goals'],
+            ...analyticsData.departmentPerformance.map(dept => [
+              dept.name, `${dept.performance}%`, dept.employees, dept.completedGoals, dept.totalGoals
+            ])
+          ].map(row => row.join(',')).join('\n');
+          
+          blob = new Blob([csvData], { type: 'text/csv' });
+          filename = `performance-analytics-${selectedPeriod}-${Date.now()}.csv`;
+          mimeType = 'text/csv';
+          break;
+        
+        case 'pdf':
+          // For PDF, we'll create a formatted text version
+          const pdfContent = `
+PERFORMANCE ANALYTICS REPORT
+Generated: ${new Date().toLocaleString()}
+Period: ${selectedPeriod}
+Department: ${selectedDepartment}
+Last Updated: ${lastUpdated.toLocaleString()}
+Total Analyzed Items: ${totalAnalyzedItems}
+
+KEY PERFORMANCE INDICATORS
+Overall Performance: ${analyticsData.kpis.overallPerformance}% (${analyticsData.kpis.performanceTrend > 0 ? '+' : ''}${analyticsData.kpis.performanceTrend}%)
+Team Productivity: ${analyticsData.kpis.teamProductivity}% (${analyticsData.kpis.productivityTrend > 0 ? '+' : ''}${analyticsData.kpis.productivityTrend}%)
+Goal Completion: ${analyticsData.kpis.goalCompletion}% (${analyticsData.kpis.goalTrend > 0 ? '+' : ''}${analyticsData.kpis.goalTrend}%)
+Employee Satisfaction: ${analyticsData.kpis.employeeSatisfaction}/5 (${analyticsData.kpis.satisfactionTrend > 0 ? '+' : ''}${analyticsData.kpis.satisfactionTrend})
+
+DEPARTMENT PERFORMANCE
+${analyticsData.departmentPerformance.map(dept => 
+  `${dept.name}: ${dept.performance}% (${dept.employees} employees, ${dept.completedGoals}/${dept.totalGoals} goals)`
+).join('\n')}
+
+TOP PERFORMERS
+${analyticsData.topPerformers.map((performer, index) => 
+  `${index + 1}. ${performer.name} (${performer.department}): ${performer.score}% (${performer.improvement > 0 ? '+' : ''}${performer.improvement}%)`
+).join('\n')}
+
+AI INSIGHTS
+${aiInsights.map(insight => 
+  `${insight.title}: ${insight.insight} (Confidence: ${insight.confidence}%)`
+).join('\n')}
+          `;
+          
+          blob = new Blob([pdfContent], { type: 'text/plain' });
+          filename = `performance-analytics-${selectedPeriod}-${Date.now()}.txt`;
+          mimeType = 'text/plain';
+          break;
+        
+        default:
+          throw new Error('Unsupported export format');
+      }
+
+      // Download the file
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      console.log(`Report exported successfully as ${format.toUpperCase()}`);
+      
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Toggle auto-refresh
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+    if (!autoRefresh) {
+      setLastUpdated(new Date());
+    }
+  };
+
+  // Format time for display
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
   };
 
   return (
     <div className="min-h-screen bg-[#11131A] text-gray-200 p-6">
-      {/* Header */}
+      {/* Header with Dynamic Controls */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Performance Analytics</h1>
-            <p className="text-gray-400">Comprehensive team performance insights and metrics</p>
+            <div className="flex items-center gap-4 text-gray-400">
+              <p>Comprehensive team performance insights and metrics</p>
+              {liveUpdates && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-sm">Live Updates</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3">
+          
+          {/* Dynamic Control Panel */}
+          <div className="flex items-center gap-3">
+            {/* Auto-refresh controls */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#1E2132] border border-gray-700 rounded-lg">
+              <button
+                onClick={toggleAutoRefresh}
+                className={`flex items-center gap-1 text-sm ${
+                  autoRefresh ? 'text-green-400' : 'text-gray-400'
+                }`}
+              >
+                {autoRefresh ? <Pause size={14} /> : <Play size={14} />}
+                Auto-refresh
+              </button>
+              {autoRefresh && nextRefresh !== null && (
+                <span className="text-xs text-gray-500">
+                  {nextRefresh}s
+                </span>
+              )}
+            </div>
+
+            {/* Refresh interval selector */}
+            <select
+              value={refreshInterval}
+              onChange={(e) => setRefreshInterval(Number(e.target.value))}
+              className="bg-[#1E2132] border border-gray-700 rounded-lg px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-indigo-500"
+              disabled={!autoRefresh}
+            >
+              <option value={15}>15s</option>
+              <option value={30}>30s</option>
+              <option value={60}>1m</option>
+              <option value={300}>5m</option>
+            </select>
+
+            {/* Manual refresh button */}
             <button
               onClick={handleRefreshData}
               disabled={isLoading}
@@ -131,17 +434,82 @@ const ManagerPerformanceAnalytics = () => {
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               Refresh
             </button>
-            <button
-              onClick={handleExportReport}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white transition-colors"
-            >
-              <Download size={16} />
-              Export Report
-            </button>
+
+            {/* Enhanced Export Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={exportLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white transition-colors disabled:opacity-50"
+              >
+                <Download size={16} />
+                Export
+                {exportLoading && <RefreshCw size={14} className="animate-spin" />}
+              </button>
+              
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-[#1E2132] border border-gray-700 rounded-lg shadow-lg z-10">
+                  <div className="p-2">
+                    <button
+                      onClick={() => handleExportReport('json')}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-left text-gray-300 hover:bg-gray-700 rounded"
+                    >
+                      <FileJson size={16} />
+                      Export as JSON
+                    </button>
+                    <button
+                      onClick={() => handleExportReport('csv')}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-left text-gray-300 hover:bg-gray-700 rounded"
+                    >
+                      <FileSpreadsheet size={16} />
+                      Export as CSV
+                    </button>
+                    <button
+                      onClick={() => handleExportReport('pdf')}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-left text-gray-300 hover:bg-gray-700 rounded"
+                    >
+                      <FileText size={16} />
+                      Export as PDF
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Status Bar */}
+        <div className="flex items-center justify-between mb-6 p-3 bg-[#1E2132] border border-gray-700 rounded-lg">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-gray-400" />
+              <span className="text-sm text-gray-300">
+                Last Updated: {formatTime(lastUpdated)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Activity size={16} className="text-green-400" />
+              <span className="text-sm text-gray-300">
+                Analyzed Items: {totalAnalyzedItems.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-blue-400" />
+              <span className="text-sm text-gray-300">
+                Status: {isLoading ? 'Updating...' : 'Ready'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Settings size={16} className="text-gray-400" />
+            <span className="text-sm text-gray-400">
+              {autoRefresh ? `Auto-refresh: ${refreshInterval}s` : 'Manual refresh'}
+            </span>
+          </div>
+        </div>
+
+        {/* Filters with Department Selection */}
         <div className="flex gap-4 mb-6">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-400" />
@@ -156,6 +524,7 @@ const ManagerPerformanceAnalytics = () => {
               <option value="year">This Year</option>
             </select>
           </div>
+          
           <div className="flex items-center gap-2">
             <Filter size={16} className="text-gray-400" />
             <select
@@ -167,6 +536,21 @@ const ManagerPerformanceAnalytics = () => {
               <option value="productivity">Productivity</option>
               <option value="goals">Goal Completion</option>
               <option value="satisfaction">Employee Satisfaction</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-gray-400" />
+            <select
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="bg-[#1E2132] border border-gray-700 rounded-lg px-3 py-2 text-gray-300 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Departments</option>
+              <option value="engineering">Engineering</option>
+              <option value="design">Design</option>
+              <option value="marketing">Marketing</option>
+              <option value="analytics">Analytics</option>
             </select>
           </div>
         </div>
@@ -428,32 +812,60 @@ const ManagerPerformanceAnalytics = () => {
 
         {/* AI-Powered Insights */}
         <div className="bg-[#1E2132] border border-gray-700 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Brain className="text-purple-400" size={20} />
-            <h2 className="text-lg font-semibold text-white">AI Insights</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Brain className="text-purple-400" size={20} />
+              <h2 className="text-lg font-semibold text-white">AI Insights</h2>
+            </div>
+            {aiLoading && (
+              <div className="flex items-center gap-2 text-purple-400">
+                <RefreshCw className="animate-spin" size={16} />
+                <span className="text-sm">Generating insights...</span>
+              </div>
+            )}
           </div>
+          
+          {aiError && (
+            <div className="p-4 bg-red-900/20 rounded-lg border border-red-600/30 mb-4">
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertTriangle size={16} />
+                <span className="text-sm">{aiError}</span>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-4">
-            {analyticsData.aiInsights.map((insight, index) => (
-              <div key={index} className="p-4 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 rounded-lg border border-purple-600/30">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-white">{insight.title}</h3>
-                  <div className="flex items-center gap-1">
-                    <Zap size={14} className="text-purple-400" />
-                    <span className="text-xs text-purple-400">{insight.confidence}%</span>
+            {aiInsights.length > 0 ? (
+              aiInsights.map((insight, index) => (
+                <div key={index} className="p-4 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 rounded-lg border border-purple-600/30">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-medium text-white">{insight.title}</h3>
+                    {insight.confidence > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Zap size={14} className="text-purple-400" />
+                        <span className="text-xs text-purple-400">{insight.confidence}%</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-300">{insight.insight}</p>
+                  <div className="mt-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      insight.type === 'prediction' ? 'bg-blue-600/20 text-blue-400' :
+                      insight.type === 'recommendation' ? 'bg-green-600/20 text-green-400' :
+                      insight.type === 'risk' ? 'bg-red-600/20 text-red-400' :
+                      'bg-gray-600/20 text-gray-400'
+                    }`}>
+                      {insight.type}
+                    </span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-300">{insight.insight}</p>
-                <div className="mt-2">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    insight.type === 'prediction' ? 'bg-blue-600/20 text-blue-400' :
-                    insight.type === 'recommendation' ? 'bg-green-600/20 text-green-400' :
-                    'bg-red-600/20 text-red-400'
-                  }`}>
-                    {insight.type}
-                  </span>
-                </div>
+              ))
+            ) : !aiLoading && (
+              <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-600/30 text-center">
+                <Brain className="mx-auto text-gray-500 mb-2" size={24} />
+                <p className="text-gray-400 text-sm">No AI insights available</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

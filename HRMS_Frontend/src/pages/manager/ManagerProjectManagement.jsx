@@ -24,6 +24,7 @@ import {
   Activity,
   Zap
 } from 'lucide-react';
+import Avatar from '../../components/common/Avatar';
 
 const ManagerProjectManagement = () => {
   const [selectedView, setSelectedView] = useState('grid');
@@ -48,9 +49,9 @@ const ManagerProjectManagement = () => {
       spent: 32500,
       manager: 'John Smith',
       team: [
-        { name: 'Sarah Johnson', role: 'UI Designer', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150' },
-        { name: 'Mike Chen', role: 'Frontend Dev', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
-        { name: 'Emily Davis', role: 'UX Researcher', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150' }
+        { name: 'Sarah Johnson', role: 'UI Designer', user: { id: 'sarah-johnson', name: 'Sarah Johnson', email: 'sarah.johnson@company.com' } },
+        { name: 'Mike Chen', role: 'Frontend Dev', user: { id: 'mike-chen', name: 'Mike Chen', email: 'mike.chen@company.com' } },
+        { name: 'Emily Davis', role: 'UX Researcher', user: { id: 'emily-davis', name: 'Emily Davis', email: 'emily.davis@company.com' } }
       ],
       milestones: [
         { name: 'Research & Planning', completed: true, date: '2024-01-30' },
@@ -80,8 +81,8 @@ const ManagerProjectManagement = () => {
       spent: 18000,
       manager: 'Sarah Johnson',
       team: [
-        { name: 'John Smith', role: 'Tech Lead', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' },
-        { name: 'Mike Chen', role: 'Mobile Dev', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
+        { name: 'John Smith', role: 'Tech Lead', user: { id: 'john-smith', name: 'John Smith', email: 'john.smith@company.com' } },
+        { name: 'Mike Chen', role: 'Mobile Dev', user: { id: 'mike-chen', name: 'Mike Chen', email: 'mike.chen@company.com' } }
       ],
       milestones: [
         { name: 'Requirements Gathering', completed: true, date: '2024-02-15' },
@@ -111,8 +112,8 @@ const ManagerProjectManagement = () => {
       spent: 75000,
       manager: 'Mike Chen',
       team: [
-        { name: 'Emily Davis', role: 'Data Scientist', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150' },
-        { name: 'John Smith', role: 'Backend Dev', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' }
+        { name: 'Emily Davis', role: 'Data Scientist', user: { id: 'emily-davis', name: 'Emily Davis', email: 'emily.davis@company.com' } },
+        { name: 'John Smith', role: 'Backend Dev', user: { id: 'john-smith', name: 'John Smith', email: 'john.smith@company.com' } }
       ],
       milestones: [
         { name: 'Data Architecture', completed: true, date: '2023-11-01' },
@@ -142,7 +143,7 @@ const ManagerProjectManagement = () => {
       spent: 18000,
       manager: 'Emily Davis',
       team: [
-        { name: 'John Smith', role: 'Security Lead', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' }
+        { name: 'John Smith', role: 'Security Lead', avatar: 'https://i.pravatar.cc/150?img=25' }
       ],
       milestones: [
         { name: 'Security Assessment', completed: true, date: '2024-01-15' },
@@ -433,11 +434,12 @@ const ManagerProjectManagement = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex -space-x-2">
                 {project.team.slice(0, 3).map((member, index) => (
-                  <img
+                  <Avatar
                     key={index}
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-8 h-8 rounded-full border-2 border-gray-800 object-cover"
+                    user={member.user}
+                    name={member.name}
+                    size={32}
+                    className="rounded-full border-2 border-gray-800"
                     title={`${member.name} - ${member.role}`}
                   />
                 ))}
@@ -558,10 +560,11 @@ const ManagerProjectManagement = () => {
                   <div className="space-y-3">
                     {selectedProject.team.map((member, index) => (
                       <div key={index} className="flex items-center gap-3">
-                        <img
-                          src={member.avatar}
-                          alt={member.name}
-                          className="w-10 h-10 rounded-full object-cover"
+                        <Avatar
+                          user={member.user}
+                          name={member.name}
+                          size={40}
+                          className="rounded-full"
                         />
                         <div>
                           <div className="font-medium text-white">{member.name}</div>

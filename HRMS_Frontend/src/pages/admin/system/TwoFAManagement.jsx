@@ -1,991 +1,796 @@
-import React, { useState } from 'react';
-import { Search, Filter, Plus, Edit, Trash2, Settings, Shield, Key, Smartphone, QrCode, CheckCircle, XCircle, AlertCircle, Eye, MoreVertical, Download, Upload, RefreshCw, Users, Activity, Clock, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  FaShieldAlt, 
+  FaMobile, 
+  FaSms, 
+  FaUsb, 
+  FaUsers, 
+  FaCheck, 
+  FaClock, 
+  FaExclamationTriangle, 
+  FaSync, 
+  FaEye, 
+  FaEyeSlash, 
+  FaCheckCircle, 
+  FaTimes, 
+  FaSearch, 
+  FaChevronDown, 
+  FaUserPlus, 
+  FaUsersCog, 
+  FaCog, 
+  FaKey 
+} from 'react-icons/fa';
+import twoFactorService from '../../../services/twoFactorService';
 
 const TwoFAManagement = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [showSetupModal, setShowSetupModal] = useState(false);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterMethod, setFilterMethod] = useState('all');
+  const [actionLoading, setActionLoading] = useState({});
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedUserIndex, setSelectedUserIndex] = useState(-1);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showIndividualSetup, setShowIndividualSetup] = useState(false);
+  const [setupMethod, setSetupMethod] = useState('app');
+  const searchRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-  // Mock 2FA users data
-  const mockUsers = [
-    {
-      id: 1,
-      name: 'John Smith',
-      email: 'john.smith@company.com',
-      department: 'Engineering',
-      role: 'Senior Developer',
-      status: 'enabled',
-      method: 'app',
-      setupDate: '2024-01-10T08:30:00Z',
-      lastUsed: '2024-01-15T09:15:00Z',
-      backupCodes: 8,
-      devices: [
-        { id: 1, name: 'iPhone 14', type: 'mobile', lastUsed: '2024-01-15T09:15:00Z' },
-        { id: 2, name: 'iPad Pro', type: 'tablet', lastUsed: '2024-01-12T14:20:00Z' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      department: 'Marketing',
-      role: 'Marketing Manager',
-      status: 'enabled',
-      method: 'sms',
-      setupDate: '2024-01-08T10:45:00Z',
-      lastUsed: '2024-01-15T08:30:00Z',
-      backupCodes: 10,
-      devices: [
-        { id: 3, name: 'Samsung Galaxy S23', type: 'mobile', lastUsed: '2024-01-15T08:30:00Z' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Mike Wilson',
-      email: 'mike.wilson@company.com',
-      department: 'Finance',
-      role: 'Financial Analyst',
-      status: 'pending',
-      method: null,
-      setupDate: null,
-      lastUsed: null,
-      backupCodes: 0,
-      devices: []
-    },
-    {
-      id: 4,
-      name: 'Emily Davis',
-      email: 'emily.davis@company.com',
-      department: 'HR',
-      role: 'HR Specialist',
-      status: 'disabled',
-      method: 'app',
-      setupDate: '2024-01-05T16:20:00Z',
-      lastUsed: '2024-01-10T11:45:00Z',
-      backupCodes: 5,
-      devices: [
-        { id: 4, name: 'Google Pixel 7', type: 'mobile', lastUsed: '2024-01-10T11:45:00Z' }
-      ]
-    },
-    {
-      id: 5,
-      name: 'David Brown',
-      email: 'david.brown@company.com',
-      department: 'Engineering',
-      role: 'DevOps Engineer',
-      status: 'enabled',
-      method: 'hardware',
-      setupDate: '2024-01-12T13:10:00Z',
-      lastUsed: '2024-01-15T07:20:00Z',
-      backupCodes: 10,
-      devices: [
-        { id: 5, name: 'YubiKey 5', type: 'hardware', lastUsed: '2024-01-15T07:20:00Z' },
-        { id: 6, name: 'iPhone 13', type: 'mobile', lastUsed: '2024-01-14T16:30:00Z' }
-      ]
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+        setSelectedUserIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!showDropdown) return;
+
+      const filteredUsers = getFilteredUsers();
+      
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          setSelectedUserIndex(prev => 
+            prev < filteredUsers.length - 1 ? prev + 1 : prev
+          );
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          setSelectedUserIndex(prev => prev > 0 ? prev - 1 : -1);
+          break;
+        case 'Enter':
+          event.preventDefault();
+          if (selectedUserIndex >= 0 && filteredUsers[selectedUserIndex]) {
+            handleUserSelect(filteredUsers[selectedUserIndex]);
+          }
+          break;
+        case 'Escape':
+          setShowDropdown(false);
+          setSelectedUserIndex(-1);
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showDropdown, selectedUserIndex]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔄 Starting to load 2FA data...');
+      
+      const [usersResponse, statsResponse] = await Promise.all([
+        twoFactorService.getAllUsers2FAStatus({ limit: 100 }),
+        twoFactorService.get2FAStats()
+      ]);
+      
+      console.log('📊 Raw users response:', usersResponse);
+      console.log('📈 Raw stats response:', statsResponse);
+      
+      if (usersResponse?.data?.users && Array.isArray(usersResponse.data.users)) {
+        console.log('✅ Users array found, length:', usersResponse.data.users.length);
+        const formattedUsers = usersResponse.data.users.map(user => ({
+          id: user.id,
+          name: user.name || 'Unknown',
+          email: user.email || 'No email',
+          status: user.twoFactorEnabled ? 'enabled' : 'disabled',
+          method: user.twoFactorMethod || 'none',
+          lastLogin: user.twoFactorLastUsed ? new Date(user.twoFactorLastUsed).toLocaleDateString() : 'Never',
+          setupDate: user.twoFactorSetupDate ? new Date(user.twoFactorSetupDate).toLocaleDateString() : 'Not set up',
+          department: user.department || 'Unknown',
+          role: user.role?.name || 'User'
+        }));
+        console.log('🎯 Formatted users:', formattedUsers);
+        setUsers(formattedUsers);
+      } else {
+        console.log('❌ No users found in response or invalid format');
+        console.log('Response structure:', {
+          hasData: !!usersResponse?.data,
+          hasUsers: !!usersResponse?.data?.users,
+          isArray: Array.isArray(usersResponse?.data?.users)
+        });
+        setUsers([]);
+      }
+      
+      if (statsResponse?.data) {
+        setStats(statsResponse.data);
+      }
+    } catch (err) {
+      console.error('❌ Error loading data:', err);
+      setError(`Failed to load 2FA data. ${err.message}`);
+      setUsers([]);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  // Mock statistics
-  const mockStats = {
-    totalUsers: 245,
-    enabledUsers: 189,
-    pendingUsers: 34,
-    disabledUsers: 22,
-    appUsers: 145,
-    smsUsers: 32,
-    hardwareUsers: 12,
-    successRate: 98.5,
-    avgSetupTime: 3.2,
-    lastWeekLogins: 1250
   };
 
-  // Mock recent activity
-  const mockActivity = [
-    {
-      id: 1,
-      type: 'setup',
-      user: 'Alice Cooper',
-      email: 'alice.cooper@company.com',
-      method: 'app',
-      timestamp: '2024-01-15T10:30:00Z',
-      status: 'success',
-      ip: '192.168.1.105'
-    },
-    {
-      id: 2,
-      type: 'login',
-      user: 'John Smith',
-      email: 'john.smith@company.com',
-      method: 'app',
-      timestamp: '2024-01-15T09:15:00Z',
-      status: 'success',
-      ip: '192.168.1.100'
-    },
-    {
-      id: 3,
-      type: 'backup_used',
-      user: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      method: 'backup_code',
-      timestamp: '2024-01-15T08:45:00Z',
-      status: 'success',
-      ip: '192.168.1.102'
-    },
-    {
-      id: 4,
-      type: 'failed_attempt',
-      user: 'Mike Wilson',
-      email: 'mike.wilson@company.com',
-      method: 'sms',
-      timestamp: '2024-01-15T08:20:00Z',
-      status: 'failed',
-      ip: '192.168.1.103',
-      reason: 'Invalid code'
-    },
-    {
-      id: 5,
-      type: 'disable',
-      user: 'Emily Davis',
-      email: 'emily.davis@company.com',
-      method: 'app',
-      timestamp: '2024-01-14T15:30:00Z',
-      status: 'success',
-      ip: '192.168.1.104'
+  const handleDisable2FA = async (userId) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: 'disabling' }));
+      setError(null);
+      setSuccessMessage(null);
+      
+      await twoFactorService.adminDisable2FA(userId);
+      await loadData();
+      
+      setSuccessMessage('2FA disabled successfully for user');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Error disabling 2FA:', err);
+      let errorMessage = 'Failed to disable 2FA: ';
+      
+      if (err.response?.status === 404) {
+        errorMessage += 'User not found.';
+      } else if (err.response?.status === 400) {
+        errorMessage += 'Invalid request. User may not have 2FA enabled.';
+      } else if (err.message) {
+        errorMessage += err.message;
+      } else {
+        errorMessage += 'Please try again.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: null }));
     }
-  ];
+  };
 
-  // Mock 2FA methods
-  const mockMethods = [
-    {
-      id: 'app',
-      name: 'Authenticator App',
-      description: 'Use Google Authenticator, Authy, or similar apps',
-      icon: Smartphone,
-      enabled: true,
-      users: 145,
-      security: 'High',
-      setup: 'Easy'
-    },
-    {
-      id: 'sms',
-      name: 'SMS Text Message',
-      description: 'Receive codes via SMS to your phone',
-      icon: Key,
-      enabled: true,
-      users: 32,
-      security: 'Medium',
-      setup: 'Very Easy'
-    },
-    {
-      id: 'hardware',
-      name: 'Hardware Token',
-      description: 'Use YubiKey or similar hardware tokens',
-      icon: Shield,
-      enabled: true,
-      users: 12,
-      security: 'Very High',
-      setup: 'Advanced'
-    },
-    {
-      id: 'email',
-      name: 'Email Verification',
-      description: 'Receive codes via email',
-      icon: AlertCircle,
-      enabled: false,
-      users: 0,
-      security: 'Low',
-      setup: 'Very Easy'
+  const handleEnable2FA = async (userId, method = 'app') => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: 'enabling' }));
+      setError(null);
+      setSuccessMessage(null);
+      
+      await twoFactorService.adminEnable2FA(userId, method);
+      await loadData();
+      
+      setSuccessMessage('2FA enabled successfully for user');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Error enabling 2FA:', err);
+      let errorMessage = 'Failed to enable 2FA: ';
+      
+      if (err.response?.status === 404) {
+        errorMessage += 'User not found.';
+      } else if (err.response?.status === 400) {
+        errorMessage += 'Invalid request. User may already have 2FA enabled.';
+      } else if (err.message) {
+        errorMessage += err.message;
+      } else {
+        errorMessage += 'Please try again.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: null }));
     }
-  ];
+  };
 
-  const StatCard = ({ title, value, icon: Icon, color = 'indigo', trend, suffix = '' }) => (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-sm font-medium">{title}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}{suffix}</p>
-          {trend && (
-            <p className={`text-sm mt-1 ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {trend > 0 ? '+' : ''}{trend}% from last month
-            </p>
-          )}
-        </div>
-        <div className={`p-3 rounded-lg bg-${color}-500/10`}>
-          <Icon className={`h-6 w-6 text-${color}-400`} />
+  // Bulk actions
+  const handleBulkEnable2FA = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      const promises = selectedUsers.map(userId => 
+        twoFactorService.adminEnable2FA(userId, setupMethod)
+      );
+      
+      await Promise.all(promises);
+      await loadData();
+      
+      setSelectedUsers([]);
+      setShowBulkActions(false);
+      setSuccessMessage(`2FA enabled successfully for ${selectedUsers.length} users`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Error enabling 2FA for multiple users:', err);
+      setError(`Failed to enable 2FA for some users: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDisable2FA = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      const promises = selectedUsers.map(userId => 
+        twoFactorService.adminDisable2FA(userId)
+      );
+      
+      await Promise.all(promises);
+      await loadData();
+      
+      setSelectedUsers([]);
+      setShowBulkActions(false);
+      setSuccessMessage(`2FA disabled successfully for ${selectedUsers.length} users`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Error disabling 2FA for multiple users:', err);
+      setError(`Failed to disable 2FA for some users: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserSelection = (userId) => {
+    setSelectedUsers(prev => {
+      const newSelection = prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId];
+      
+      setShowBulkActions(newSelection.length > 0);
+      return newSelection;
+    });
+  };
+
+  const getFilteredUsers = () => {
+    const filtered = users.filter(user => {
+      const matchesSearch = !searchTerm || 
+                           user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+      const matchesMethod = filterMethod === 'all' || user.method === filterMethod;
+      
+      return matchesSearch && matchesStatus && matchesMethod;
+    });
+    
+    return filtered;
+  };
+
+  const handleUserSelect = (user) => {
+    setSearchTerm(user.name);
+    setShowDropdown(false);
+    setSelectedUserIndex(-1);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('all');
+    setFilterMethod('all');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-slate-600 text-lg">Loading 2FA Management...</p>
+          </div>
         </div>
       </div>
-    </div>
-  );
-
-  const StatusBadge = ({ status }) => {
-    const statusConfig = {
-      enabled: { color: 'green', label: 'Enabled' },
-      disabled: { color: 'red', label: 'Disabled' },
-      pending: { color: 'yellow', label: 'Pending Setup' },
-      suspended: { color: 'orange', label: 'Suspended' }
-    };
-    
-    const config = statusConfig[status] || statusConfig.pending;
-    
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${config.color}-500/10 text-${config.color}-400 border border-${config.color}-500/20`}>
-        {config.label}
-      </span>
     );
-  };
+  }
 
-  const MethodBadge = ({ method }) => {
-    const methodConfig = {
-      app: { color: 'blue', label: 'App', icon: Smartphone },
-      sms: { color: 'green', label: 'SMS', icon: Key },
-      hardware: { color: 'purple', label: 'Hardware', icon: Shield },
-      email: { color: 'orange', label: 'Email', icon: AlertCircle }
-    };
-    
-    const config = methodConfig[method] || methodConfig.app;
-    const IconComponent = config.icon;
-    
+  if (error) {
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${config.color}-500/10 text-${config.color}-400 border border-${config.color}-500/20 flex items-center space-x-1`}>
-        <IconComponent className="h-3 w-3" />
-        <span>{config.label}</span>
-      </span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border-l-4 border-red-400 p-6 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <FaExclamationTriangle className="text-red-400 text-xl mr-3" />
+              <div>
+                <h3 className="text-lg font-medium text-red-800">Error Loading 2FA Management</h3>
+                <p className="text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const SecurityBadge = ({ level }) => {
-    const securityConfig = {
-      'Very High': { color: 'emerald', label: 'Very High' },
-      'High': { color: 'green', label: 'High' },
-      'Medium': { color: 'yellow', label: 'Medium' },
-      'Low': { color: 'red', label: 'Low' }
-    };
-    
-    const config = securityConfig[level] || securityConfig.Medium;
-    
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${config.color}-500/10 text-${config.color}-400 border border-${config.color}-500/20`}>
-        {config.label}
-      </span>
-    );
-  };
-
-  const filteredUsers = mockUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.department.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = selectedStatus === 'all' || user.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredUsers = getFilteredUsers();
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Two-Factor Authentication</h1>
-            <p className="text-gray-400 mt-2">Manage 2FA settings and user authentication methods</p>
+    <div className="min-h-screen bg-[#11131A] p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-green-900/20 border-l-4 border-green-400 p-4 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <FaCheckCircle className="text-green-400 text-lg mr-3" />
+              <p className="text-green-300 font-medium">{successMessage}</p>
+            </div>
           </div>
-          <div className="flex space-x-3">
-            <button className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-700 flex items-center space-x-2">
-              <Download className="h-4 w-4" />
-              <span>Export Report</span>
-            </button>
-            <button className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-700 flex items-center space-x-2">
-              <RefreshCw className="h-4 w-4" />
-              <span>Sync Status</span>
-            </button>
-            <button 
-              onClick={() => setShowSetupModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Bulk Setup</span>
-            </button>
+        )}
+
+        {/* Header */}
+        <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg">
+                <FaShieldAlt className="text-white text-2xl" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Two-Factor Authentication Management</h1>
+                <p className="text-gray-400 mt-1">Manage 2FA settings for all users in your organization</p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowIndividualSetup(true)}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 shadow-sm"
+              >
+                <FaUserPlus />
+                <span>Individual Setup</span>
+              </button>
+              <button
+                onClick={() => loadData()}
+                className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center space-x-2 shadow-sm"
+              >
+                <FaSync />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Users"
-            value={mockStats.totalUsers}
-            icon={Users}
-            color="blue"
-          />
-          <StatCard
-            title="2FA Enabled"
-            value={mockStats.enabledUsers}
-            icon={CheckCircle}
-            color="green"
-            trend={15}
-          />
-          <StatCard
-            title="Pending Setup"
-            value={mockStats.pendingUsers}
-            icon={Clock}
-            color="yellow"
-          />
-          <StatCard
-            title="Success Rate"
-            value={mockStats.successRate}
-            suffix="%"
-            icon={Shield}
-            color="emerald"
-            trend={2}
-          />
-        </div>
-
-        {/* Method Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="App Users"
-            value={mockStats.appUsers}
-            icon={Smartphone}
-            color="indigo"
-          />
-          <StatCard
-            title="SMS Users"
-            value={mockStats.smsUsers}
-            icon={Key}
-            color="green"
-          />
-          <StatCard
-            title="Hardware Users"
-            value={mockStats.hardwareUsers}
-            icon={Lock}
-            color="purple"
-          />
-          <StatCard
-            title="Avg Setup Time"
-            value={mockStats.avgSetupTime}
-            suffix=" min"
-            icon={Activity}
-            color="orange"
-          />
-        </div>
-
-        {/* Tabs */}
-        <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg w-fit">
-          {[
-            { id: 'overview', label: 'Overview', icon: Shield },
-            { id: 'users', label: 'Users', icon: Users },
-            { id: 'methods', label: 'Methods', icon: Settings },
-            { id: 'activity', label: 'Activity', icon: Activity }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg">
-              {/* Search and Filters */}
-              {(activeTab === 'users' || activeTab === 'activity') && (
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <input
-                        type="text"
-                        placeholder="Search users..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="flex space-x-2">
-                      <select 
-                        value={selectedStatus}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="enabled">Enabled</option>
-                        <option value="disabled">Disabled</option>
-                        <option value="pending">Pending</option>
-                      </select>
-                      <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg border border-gray-600 flex items-center space-x-2">
-                        <Filter className="h-4 w-4" />
-                        <span>Filter</span>
-                      </button>
-                    </div>
-                  </div>
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm font-medium">Total Users</p>
+                  <p className="text-2xl font-bold text-white mt-1">{stats.totalUsers || 0}</p>
                 </div>
-              )}
-
-              {/* Overview Tab */}
-              {activeTab === 'overview' && (
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Status Distribution */}
-                    <div className="bg-gray-750 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-white mb-4">Status Distribution</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                            <span className="text-white">Enabled</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-white font-medium">{mockStats.enabledUsers}</span>
-                            <span className="text-gray-400 text-sm ml-2">
-                              ({((mockStats.enabledUsers / mockStats.totalUsers) * 100).toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                            <span className="text-white">Pending</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-white font-medium">{mockStats.pendingUsers}</span>
-                            <span className="text-gray-400 text-sm ml-2">
-                              ({((mockStats.pendingUsers / mockStats.totalUsers) * 100).toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                            <span className="text-white">Disabled</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-white font-medium">{mockStats.disabledUsers}</span>
-                            <span className="text-gray-400 text-sm ml-2">
-                              ({((mockStats.disabledUsers / mockStats.totalUsers) * 100).toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Method Distribution */}
-                    <div className="bg-gray-750 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-white mb-4">Method Distribution</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Smartphone className="h-4 w-4 text-blue-400" />
-                            <span className="text-white">Authenticator App</span>
-                          </div>
-                          <span className="text-white font-medium">{mockStats.appUsers}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Key className="h-4 w-4 text-green-400" />
-                            <span className="text-white">SMS</span>
-                          </div>
-                          <span className="text-white font-medium">{mockStats.smsUsers}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Shield className="h-4 w-4 text-purple-400" />
-                            <span className="text-white">Hardware Token</span>
-                          </div>
-                          <span className="text-white font-medium">{mockStats.hardwareUsers}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recent Trends */}
-                  <div className="mt-6 bg-gray-750 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Security Metrics</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-400">{mockStats.successRate}%</div>
-                        <div className="text-sm text-gray-400">Authentication Success Rate</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-400">{mockStats.avgSetupTime} min</div>
-                        <div className="text-sm text-gray-400">Average Setup Time</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-400">{mockStats.lastWeekLogins}</div>
-                        <div className="text-sm text-gray-400">2FA Logins This Week</div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="p-3 bg-indigo-900/30 rounded-lg">
+                  <FaUsers className="text-indigo-400 text-xl" />
                 </div>
-              )}
+              </div>
+            </div>
 
-              {/* Users Tab */}
-              {activeTab === 'users' && (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-750">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Department</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Method</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Last Used</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Backup Codes</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-700">
-                      {filteredUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-750">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                <span className="text-white font-medium">
-                                  {user.name.split(' ').map(n => n[0]).join('')}
+            <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm font-medium">2FA Enabled</p>
+                  <p className="text-2xl font-bold text-green-400 mt-1">{stats.enabledUsers || 0}</p>
+                </div>
+                <div className="p-3 bg-green-900/30 rounded-lg">
+                  <FaCheckCircle className="text-green-400 text-xl" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm font-medium">Pending Setup</p>
+                  <p className="text-2xl font-bold text-amber-400 mt-1">{stats.pendingUsers || 0}</p>
+                </div>
+                <div className="p-3 bg-amber-900/30 rounded-lg">
+                  <FaClock className="text-amber-400 text-xl" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm font-medium">Adoption Rate</p>
+                  <p className="text-2xl font-bold text-indigo-400 mt-1">
+                    {stats.totalUsers > 0 ? Math.round((stats.enabledUsers / stats.totalUsers) * 100) : 0}%
+                  </p>
+                </div>
+                <div className="p-3 bg-indigo-900/30 rounded-lg">
+                  <FaSync className="text-indigo-400 text-xl" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters and Search */}
+        <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+              {/* Search with Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    placeholder={`Click to see all ${users.length} users or type to search...`}
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setShowDropdown(true);
+                      setSelectedUserIndex(-1);
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    onClick={() => setShowDropdown(true)}
+                    className="pl-10 pr-4 py-2 bg-[#11131A] border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 w-full sm:w-64 text-white placeholder-gray-400"
+                  />
+                </div>
+                
+                {/* Dropdown */}
+                {showDropdown && (
+                  <div className="absolute z-10 mt-1 w-full bg-[#1E2132] border border-gray-600 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map((user, index) => (
+                        <div
+                          key={user.id}
+                          className={`px-4 py-4 cursor-pointer transition-colors border-b border-gray-700/50 last:border-b-0 ${
+                            index === selectedUserIndex
+                              ? 'bg-indigo-900/30 border-l-4 border-indigo-500'
+                              : 'hover:bg-gray-700/30'
+                          }`}
+                          onClick={() => handleUserSelect(user)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="font-medium text-white truncate">{user.name}</div>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                                  user.status === 'enabled'
+                                    ? 'bg-green-900/30 text-green-400'
+                                    : 'bg-red-900/30 text-red-400'
+                                }`}>
+                                  {user.status}
                                 </span>
                               </div>
-                              <div>
-                                <div className="text-sm font-medium text-white">{user.name}</div>
-                                <div className="text-sm text-gray-400">{user.email}</div>
+                              <div className="text-sm text-gray-400 mb-1 truncate">{user.email}</div>
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                <span className="text-blue-400 bg-blue-900/20 px-2 py-1 rounded">
+                                  {user.department}
+                                </span>
+                                <span className="text-purple-400 bg-purple-900/20 px-2 py-1 rounded">
+                                  {user.role}
+                                </span>
+                                {user.method !== 'none' && (
+                                  <span className="text-orange-400 bg-orange-900/20 px-2 py-1 rounded">
+                                    {user.method}
+                                  </span>
+                                )}
                               </div>
+                              {user.lastLogin !== 'Never' && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Last login: {user.lastLogin}
+                                </div>
+                              )}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-white">{user.department}</div>
-                            <div className="text-sm text-gray-400">{user.role}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <StatusBadge status={user.status} />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {user.method ? (
-                              <MethodBadge method={user.method} />
-                            ) : (
-                              <span className="text-gray-400 text-sm">Not set</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-white">
-                              {user.lastUsed ? new Date(user.lastUsed).toLocaleDateString() : 'Never'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <Key className="h-4 w-4 text-gray-400 mr-2" />
-                              <span className="text-white text-sm">{user.backupCodes}/10</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setShowUserModal(true);
-                                }}
-                                className="text-indigo-400 hover:text-indigo-300"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button className="text-blue-400 hover:text-blue-300">
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button className="text-green-400 hover:text-green-300">
-                                <RefreshCw className="h-4 w-4" />
-                              </button>
-                              <button className="text-gray-400 hover:text-gray-300">
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Methods Tab */}
-              {activeTab === 'methods' && (
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {mockMethods.map((method) => {
-                      const IconComponent = method.icon;
-                      return (
-                        <div key={method.id} className="bg-gray-750 rounded-lg p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <div className={`p-3 rounded-lg ${method.enabled ? 'bg-green-500/10' : 'bg-gray-600/10'}`}>
-                                <IconComponent className={`h-6 w-6 ${method.enabled ? 'text-green-400' : 'text-gray-400'}`} />
-                              </div>
-                              <div>
-                                <h3 className="text-lg font-semibold text-white">{method.name}</h3>
-                                <p className="text-gray-400 text-sm">{method.description}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <StatusBadge status={method.enabled ? 'enabled' : 'disabled'} />
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="text-center">
-                              <div className="text-xl font-bold text-white">{method.users}</div>
-                              <div className="text-xs text-gray-400">Users</div>
-                            </div>
-                            <div className="text-center">
-                              <SecurityBadge level={method.security} />
-                              <div className="text-xs text-gray-400 mt-1">Security</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-sm text-white">{method.setup}</div>
-                              <div className="text-xs text-gray-400">Setup</div>
-                            </div>
-                          </div>
-
-                          <div className="flex space-x-2">
-                            <button className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${
-                              method.enabled 
-                                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                                : 'bg-green-600 hover:bg-green-700 text-white'
-                            }`}>
-                              {method.enabled ? 'Disable' : 'Enable'}
-                            </button>
-                            <button className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm">
-                              Configure
-                            </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Activity Tab */}
-              {activeTab === 'activity' && (
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {mockActivity.map((activity) => (
-                      <div key={activity.id} className="bg-gray-750 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-3">
-                            <div className={`p-2 rounded-lg ${
-                              activity.status === 'success' ? 'bg-green-500/10' :
-                              activity.status === 'failed' ? 'bg-red-500/10' :
-                              'bg-blue-500/10'
-                            }`}>
-                              {activity.type === 'setup' && <Settings className={`h-4 w-4 ${
-                                activity.status === 'success' ? 'text-green-400' : 'text-red-400'
-                              }`} />}
-                              {activity.type === 'login' && <Key className="text-green-400 h-4 w-4" />}
-                              {activity.type === 'backup_used' && <Shield className="text-yellow-400 h-4 w-4" />}
-                              {activity.type === 'failed_attempt' && <XCircle className="text-red-400 h-4 w-4" />}
-                              {activity.type === 'disable' && <AlertCircle className="text-orange-400 h-4 w-4" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <h4 className="text-white font-medium">
-                                  {activity.type === 'setup' && '2FA Setup'}
-                                  {activity.type === 'login' && '2FA Login'}
-                                  {activity.type === 'backup_used' && 'Backup Code Used'}
-                                  {activity.type === 'failed_attempt' && 'Failed Authentication'}
-                                  {activity.type === 'disable' && '2FA Disabled'}
-                                </h4>
-                                <StatusBadge status={activity.status} />
-                              </div>
-                              <p className="text-gray-400 text-sm mt-1">
-                                User: {activity.user} ({activity.email})
-                              </p>
-                              <p className="text-gray-400 text-sm">
-                                Method: <MethodBadge method={activity.method} />
-                                {activity.reason && ` - ${activity.reason}`}
-                              </p>
-                              <p className="text-gray-500 text-xs mt-1">IP: {activity.ip}</p>
-                            </div>
-                          </div>
-                          <div className="text-gray-400 text-sm">
-                            {new Date(activity.timestamp).toLocaleString()}
-                          </div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-gray-400 text-center">
+                        {searchTerm ? `No users found matching "${searchTerm}"` : 'No users available'}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
+                )}
+              </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <button 
-                  onClick={() => setShowSetupModal(true)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+              {/* Status Filter */}
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="appearance-none bg-[#11131A] border border-gray-600 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 text-white"
                 >
-                  Bulk Setup
-                </button>
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                  Send Reminders
-                </button>
-                <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm">
-                  Reset Codes
-                </button>
-                <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm">
-                  Security Report
-                </button>
-              </div>
-            </div>
-
-            {/* Security Alerts */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Security Alerts</h3>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-red-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">Multiple failed attempts</p>
-                    <p className="text-xs text-gray-400">Mike Wilson - 5 attempts</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">Low backup codes</p>
-                    <p className="text-xs text-gray-400">Emily Davis - 2 codes left</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white">New device registered</p>
-                    <p className="text-xs text-gray-400">John Smith - iPad Pro</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Compliance Status */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Compliance Status</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">2FA Coverage</span>
-                  <span className="text-white font-medium">77%</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div className="bg-green-400 h-2 rounded-full" style={{width: '77%'}}></div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Target</span>
-                  <span className="text-green-400 font-medium">90%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bulk Setup Modal */}
-      {showSetupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-white">Bulk 2FA Setup</h3>
-              <button
-                onClick={() => setShowSetupModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Target Users</label>
-                <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">Select user group</option>
-                  <option value="all_pending">All Pending Users</option>
-                  <option value="department">By Department</option>
-                  <option value="role">By Role</option>
-                  <option value="custom">Custom Selection</option>
+                  <option value="all">All Status</option>
+                  <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
                 </select>
+                <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Default Method</label>
-                <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+              {/* Method Filter */}
+              <div className="relative">
+                <select
+                  value={filterMethod}
+                  onChange={(e) => setFilterMethod(e.target.value)}
+                  className="appearance-none bg-[#11131A] border border-gray-600 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 text-white"
+                >
+                  <option value="all">All Methods</option>
                   <option value="app">Authenticator App</option>
                   <option value="sms">SMS</option>
                   <option value="hardware">Hardware Token</option>
+                  <option value="none">Not Set Up</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Setup Instructions</label>
-                <textarea
-                  rows="3"
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Custom instructions for users..."
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="send_email"
-                  className="rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label htmlFor="send_email" className="text-sm text-gray-400">
-                  Send setup instructions via email
-                </label>
+                <FaChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowSetupModal(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
-              >
-                Cancel
-              </button>
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
-                Start Setup
-              </button>
-            </div>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-700/30 rounded-lg transition-colors duration-200 flex items-center space-x-2"
+            >
+              <FaTimes />
+              <span>Clear Filters</span>
+            </button>
           </div>
         </div>
-      )}
 
-      {/* User Details Modal */}
-      {showUserModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-white">{selectedUser.name} - 2FA Details</h3>
-              <button
-                onClick={() => setShowUserModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ×
-              </button>
+        {/* Bulk Actions */}
+        {showBulkActions && (
+          <div className="bg-indigo-900/20 border border-indigo-700/30 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <FaUsersCog className="text-indigo-400 text-lg" />
+                <span className="text-indigo-300 font-medium">
+                  {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleBulkEnable2FA}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+                >
+                  Enable 2FA
+                </button>
+                <button
+                  onClick={handleBulkDisable2FA}
+                  className="px-3 py-1 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+                >
+                  Disable 2FA
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedUsers([]);
+                    setShowBulkActions(false);
+                  }}
+                  className="px-3 py-1 bg-gray-600 text-white rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
+                >
+                  Clear Selection
+                </button>
+              </div>
             </div>
-            
-            <div className="space-y-6">
-              {/* User Info */}
-              <div className="bg-gray-750 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-white mb-3">User Information</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-400">Email</label>
-                    <p className="text-white">{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Department</label>
-                    <p className="text-white">{selectedUser.department}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Role</label>
-                    <p className="text-white">{selectedUser.role}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Status</label>
-                    <div className="mt-1">
-                      <StatusBadge status={selectedUser.status} />
-                    </div>
-                  </div>
-                </div>
-              </div>
+          </div>
+        )}
 
-              {/* 2FA Status */}
-              <div className="bg-gray-750 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-white mb-3">2FA Status</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-400">Method</label>
-                    <div className="mt-1">
-                      {selectedUser.method ? (
-                        <MethodBadge method={selectedUser.method} />
-                      ) : (
-                        <span className="text-gray-400">Not configured</span>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Setup Date</label>
-                    <p className="text-white">
-                      {selectedUser.setupDate ? new Date(selectedUser.setupDate).toLocaleDateString() : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Last Used</label>
-                    <p className="text-white">
-                      {selectedUser.lastUsed ? new Date(selectedUser.lastUsed).toLocaleDateString() : 'Never'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Backup Codes</label>
-                    <p className="text-white">{selectedUser.backupCodes}/10 remaining</p>
-                  </div>
-                </div>
-              </div>
+        {/* Users Table */}
+        <div className="bg-[#1E2132] rounded-xl shadow-sm border border-gray-700">
+          <div className="p-6 border-b border-gray-700">
+            <h2 className="text-lg font-semibold text-white">User 2FA Status</h2>
+            <p className="text-gray-400 mt-1">Manage two-factor authentication for individual users</p>
+          </div>
 
-              {/* Registered Devices */}
-              <div className="bg-gray-750 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-white mb-3">Registered Devices</h4>
-                {selectedUser.devices.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedUser.devices.map((device) => (
-                      <div key={device.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-gray-600 rounded-lg">
-                            {device.type === 'mobile' && <Smartphone className="h-4 w-4 text-blue-400" />}
-                            {device.type === 'tablet' && <Smartphone className="h-4 w-4 text-green-400" />}
-                            {device.type === 'hardware' && <Shield className="h-4 w-4 text-purple-400" />}
-                          </div>
-                          <div>
-                            <p className="text-white font-medium">{device.name}</p>
-                            <p className="text-gray-400 text-sm">
-                              Last used: {new Date(device.lastUsed).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <button className="text-red-400 hover:text-red-300">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#11131A] border-b border-gray-700">
+                <tr>
+                  <th className="text-left py-4 px-6">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUsers(filteredUsers.map(user => user.id));
+                          setShowBulkActions(true);
+                        } else {
+                          setSelectedUsers([]);
+                          setShowBulkActions(false);
+                        }
+                      }}
+                      className="rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-[#11131A]"
+                    />
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">User</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">Status</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">Method</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">Last Login</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">Setup Date</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-8 text-gray-400">
+                      No users found
+                    </td>
+                  </tr>
                 ) : (
-                  <p className="text-gray-400">No devices registered</p>
+                  filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-700/20 transition-colors">
+                      <td className="py-4 px-6">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={() => handleUserSelection(user.id)}
+                          className="rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-[#11131A]"
+                        />
+                      </td>
+                      <td className="py-4 px-6">
+                        <div>
+                          <div className="font-medium text-white">{user.name}</div>
+                          <div className="text-sm text-gray-400">{user.email}</div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.status === 'enabled'
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-red-900/30 text-red-400'
+                        }`}>
+                          {user.status === 'enabled' ? (
+                            <>
+                              <FaCheckCircle className="mr-1" />
+                              Enabled
+                            </>
+                          ) : (
+                            <>
+                              <FaTimes className="mr-1" />
+                              Disabled
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center">
+                          {user.method === 'app' && <FaMobile className="text-indigo-400 mr-2" />}
+                          {user.method === 'sms' && <FaSms className="text-green-400 mr-2" />}
+                          {user.method === 'hardware' && <FaUsb className="text-purple-400 mr-2" />}
+                          <span className="text-sm text-gray-300 capitalize">
+                            {user.method === 'none' ? 'Not set up' : user.method}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-400">{user.lastLogin}</td>
+                      <td className="py-4 px-6 text-sm text-gray-400">{user.setupDate}</td>
+                      <td className="py-4 px-6">
+                        <div className="flex space-x-2">
+                          {user.status === 'enabled' ? (
+                            <button
+                              onClick={() => handleDisable2FA(user.id)}
+                              disabled={actionLoading[user.id]}
+                              className="px-3 py-1 bg-red-900/30 text-red-400 rounded-md text-sm font-medium hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                            >
+                              {actionLoading[user.id] === 'disabling' ? 'Disabling...' : 'Disable'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleEnable2FA(user.id)}
+                              disabled={actionLoading[user.id]}
+                              className="px-3 py-1 bg-green-900/30 text-green-400 rounded-md text-sm font-medium hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                            >
+                              {actionLoading[user.id] === 'enabling' ? 'Enabling...' : 'Enable'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowUserModal(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
-              >
-                Close
-              </button>
-              <button className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg">
-                Reset 2FA
-              </button>
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
-                Generate Backup Codes
-              </button>
-            </div>
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+
+        {/* Individual Setup Modal */}
+        {showIndividualSetup && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-[#1E2132] rounded-xl shadow-xl max-w-md w-full mx-4 border border-gray-700">
+              <div className="p-6 border-b border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Individual 2FA Setup</h3>
+                  <button
+                    onClick={() => setShowIndividualSetup(false)}
+                    className="text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Select 2FA Method
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center text-gray-300 hover:text-white cursor-pointer">
+                        <input
+                          type="radio"
+                          name="setupMethod"
+                          value="app"
+                          checked={setupMethod === 'app'}
+                          onChange={(e) => setSetupMethod(e.target.value)}
+                          className="mr-3 text-indigo-500 bg-[#11131A] border-gray-600 focus:ring-indigo-500"
+                        />
+                        <FaMobile className="text-indigo-400 mr-2" />
+                        <span>Authenticator App (TOTP)</span>
+                      </label>
+                      <label className="flex items-center text-gray-300 hover:text-white cursor-pointer">
+                        <input
+                          type="radio"
+                          name="setupMethod"
+                          value="sms"
+                          checked={setupMethod === 'sms'}
+                          onChange={(e) => setSetupMethod(e.target.value)}
+                          className="mr-3 text-indigo-500 bg-[#11131A] border-gray-600 focus:ring-indigo-500"
+                        />
+                        <FaSms className="text-green-400 mr-2" />
+                        <span>SMS</span>
+                      </label>
+                      <label className="flex items-center text-gray-300 hover:text-white cursor-pointer">
+                        <input
+                          type="radio"
+                          name="setupMethod"
+                          value="hardware"
+                          checked={setupMethod === 'hardware'}
+                          onChange={(e) => setSetupMethod(e.target.value)}
+                          className="mr-3 text-indigo-500 bg-[#11131A] border-gray-600 focus:ring-indigo-500"
+                        />
+                        <FaUsb className="text-purple-400 mr-2" />
+                        <span>Hardware Token</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-gray-700 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowIndividualSetup(false)}
+                  className="px-4 py-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // Handle individual setup logic here
+                    setShowIndividualSetup(false);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg hover:from-indigo-600 hover:to-indigo-700 transition-colors"
+                >
+                  Setup 2FA
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

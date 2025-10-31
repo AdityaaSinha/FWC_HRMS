@@ -4,6 +4,7 @@ import {
   Filter, Plus, MoreVertical, Pin, Archive, Star, 
   Clock, CheckCircle, AlertCircle, Info, Video, Phone 
 } from 'lucide-react';
+import Avatar from '../../components/common/Avatar';
 
 const ManagerCommunicationHub = () => {
   const [activeTab, setActiveTab] = useState('messages');
@@ -20,7 +21,7 @@ const ManagerCommunicationHub = () => {
       lastMessage: 'The new feature is ready for testing',
       timestamp: '2 min ago',
       unread: 3,
-      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150',
+      user: { id: 'team-dev', name: 'Development Team', email: 'dev-team@company.com' },
       online: true,
       participants: 8
     },
@@ -31,7 +32,7 @@ const ManagerCommunicationHub = () => {
       lastMessage: 'Can we schedule a meeting for tomorrow?',
       timestamp: '15 min ago',
       unread: 1,
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
+      user: { id: 'sarah-johnson', name: 'Sarah Johnson', email: 'sarah.johnson@company.com' },
       online: true
     },
     {
@@ -41,7 +42,7 @@ const ManagerCommunicationHub = () => {
       lastMessage: 'Budget approval received',
       timestamp: '1 hour ago',
       unread: 0,
-      avatar: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=150',
+      user: { id: 'team-alpha', name: 'Project Alpha Team', email: 'alpha-team@company.com' },
       online: false,
       participants: 12
     },
@@ -52,7 +53,7 @@ const ManagerCommunicationHub = () => {
       lastMessage: 'Thanks for the feedback on the proposal',
       timestamp: '3 hours ago',
       unread: 0,
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      user: { id: 'mike-chen', name: 'Mike Chen', email: 'mike.chen@company.com' },
       online: false
     }
   ];
@@ -65,7 +66,7 @@ const ManagerCommunicationHub = () => {
       content: 'Hi team, I wanted to discuss the Q1 performance metrics with everyone.',
       timestamp: '10:30 AM',
       type: 'text',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150'
+      user: { id: 'sarah-johnson', name: 'Sarah Johnson', email: 'sarah.johnson@company.com' }
     },
     {
       id: 2,
@@ -81,7 +82,7 @@ const ManagerCommunicationHub = () => {
       content: 'I can prepare the detailed breakdown by department.',
       timestamp: '10:35 AM',
       type: 'text',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'
+      user: { id: 'mike-chen', name: 'Mike Chen', email: 'mike.chen@company.com' }
     },
     {
       id: 4,
@@ -190,10 +191,10 @@ const ManagerCommunicationHub = () => {
     >
       <div className="flex items-center space-x-3">
         <div className="relative">
-          <img
-            src={conversation.avatar}
-            alt={conversation.name}
-            className="w-12 h-12 rounded-full object-cover"
+          <Avatar
+            user={conversation.user}
+            name={conversation.name}
+            size={48}
           />
           {conversation.online && (
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
@@ -224,10 +225,10 @@ const ManagerCommunicationHub = () => {
     <div className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${message.isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
         {!message.isOwn && (
-          <img
-            src={message.avatar}
-            alt={message.sender}
-            className="w-8 h-8 rounded-full object-cover"
+          <Avatar
+            user={message.user}
+            name={message.sender}
+            size={32}
           />
         )}
         <div>
@@ -376,10 +377,10 @@ const ManagerCommunicationHub = () => {
                     {/* Chat Header */}
                     <div className="p-4 border-b border-gray-700 flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <img
-                          src={selectedConversation.avatar}
-                          alt={selectedConversation.name}
-                          className="w-10 h-10 rounded-full object-cover"
+                        <Avatar
+                          user={selectedConversation.user}
+                          name={selectedConversation.name}
+                          size={40}
                         />
                         <div>
                           <h3 className="font-semibold text-white">{selectedConversation.name}</h3>

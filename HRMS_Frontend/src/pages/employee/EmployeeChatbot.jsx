@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Card from '../../components/Card';
-import { Icon } from '../../components/Icon';
+import { Icon } from '../../components/icon';
 
 export default function EmployeeChatbot() {
   const [messages, setMessages] = useState([

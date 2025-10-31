@@ -1,5 +1,5 @@
 import Card from './Card';
-import { Icon } from './Icon';
+import { Icon } from './icon';
 
 export default function StatCard({ title, value, icon, color }) {
   return (

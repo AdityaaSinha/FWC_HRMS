@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import eventService from '../../services/eventService.js';
 import { 
   Calendar, 
   Search, 
@@ -68,6 +69,114 @@ const EmployeeEvents = () => {
   const [filterLocation, setFilterLocation] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [userRegistrations, setUserRegistrations] = useState([]);
+
+  // Load events and user registrations on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      // Temporarily using mock data to show expanded descriptions and SVG images
+      console.log('Using mock data for demonstration...');
+      
+      // Mock data with expanded descriptions
+      const mockEvents = [
+          {
+            id: 1,
+            title: "Annual Company Retreat",
+            description: "Join us for our highly anticipated annual company retreat at the beautiful Mountain View Resort! This three-day immersive experience is designed to strengthen team bonds, foster innovation, and celebrate our collective achievements. The retreat features a diverse range of activities including interactive team-building challenges, leadership workshops led by industry experts, strategic planning sessions, and recreational activities like hiking, kayaking, and evening campfire gatherings. You'll have the opportunity to collaborate with colleagues from different departments, participate in innovation labs, attend keynote presentations from thought leaders, and enjoy gourmet meals prepared by award-winning chefs. The retreat also includes wellness sessions such as morning yoga, meditation workshops, and spa treatments. This is more than just a corporate event – it's a chance to recharge, reconnect, and return to work with renewed energy and fresh perspectives. All accommodation, meals, and activities are fully covered by the company.",
+            category: "team-building",
+            date: "2024-03-15",
+            time: "09:00",
+            location: "Mountain View Resort",
+            capacity: 100,
+            registered: 45,
+            status: "upcoming",
+            organizer: "HR Department",
+            tags: ["team-building", "networking", "retreat"],
+            image: "/api/placeholder/400/200"
+          },
+          {
+            id: 2,
+            title: "Leadership Development Workshop",
+            description: "Elevate your leadership capabilities with this comprehensive two-day intensive workshop designed for emerging and established leaders. This program combines cutting-edge leadership theory with practical, real-world applications. You'll explore advanced communication strategies, learn to navigate complex decision-making scenarios, and develop skills in emotional intelligence, conflict resolution, and team motivation. The workshop features interactive case studies from Fortune 500 companies, role-playing exercises, 360-degree feedback sessions, and personalized coaching from certified leadership consultants. Key topics include authentic leadership styles, building high-performance teams, managing organizational change, strategic thinking, and creating inclusive work environments. Participants will receive a comprehensive leadership assessment, personalized development plan, and access to our exclusive leadership resource library. The workshop also includes networking opportunities with senior executives and alumni from previous programs. Upon completion, you'll earn a certificate in Leadership Excellence and gain access to our ongoing mentorship program.",
+            category: "training",
+            date: "2024-03-20",
+            time: "14:00",
+            location: "Conference Room A",
+            capacity: 30,
+            registered: 28,
+            status: "upcoming",
+            organizer: "Learning & Development",
+            tags: ["leadership", "professional-development", "workshop"],
+            image: "/api/placeholder/400/200"
+          },
+          {
+            id: 3,
+            title: "Tech Innovation Summit",
+            description: "Immerse yourself in the future of technology at our flagship Tech Innovation Summit, featuring world-renowned speakers, cutting-edge demonstrations, and exclusive previews of emerging technologies. This full-day event brings together industry pioneers, startup founders, venture capitalists, and technology enthusiasts to explore the latest trends in artificial intelligence, machine learning, blockchain, quantum computing, cybersecurity, and sustainable technology solutions. The summit includes keynote presentations from tech leaders at companies like Google, Microsoft, and Tesla, interactive panel discussions on digital transformation, hands-on workshops with the latest development tools, and a startup showcase featuring the most promising new companies. Attendees will have access to exclusive networking sessions, one-on-one meetings with industry experts, and a technology expo featuring live demonstrations of breakthrough innovations. The event also includes specialized tracks for different technical disciplines, career development sessions, and insights into emerging job markets. All participants receive a comprehensive digital resource package, access to recorded sessions, and invitations to exclusive follow-up events throughout the year.",
+            category: "professional",
+            date: "2024-03-25",
+            time: "10:00",
+            location: "Main Auditorium",
+            capacity: 200,
+            registered: 150,
+            status: "upcoming",
+            organizer: "Technology Team",
+            tags: ["technology", "innovation", "summit"],
+            image: "/api/placeholder/400/200"
+          },
+          {
+            id: 4,
+            title: "Wellness Wednesday: Yoga Session",
+            description: "Start your Wednesday with renewed energy and inner peace through our expertly guided yoga session, designed to enhance both physical flexibility and mental clarity. This 90-minute session is suitable for all skill levels, from complete beginners to experienced practitioners. Our certified yoga instructor will guide you through a carefully crafted sequence that includes gentle warm-up stretches, strength-building poses, balance challenges, and deep relaxation techniques. The session focuses on stress reduction, improved posture (especially beneficial for desk workers), enhanced breathing techniques, and mindfulness practices that you can incorporate into your daily routine. We'll explore various yoga styles including Hatha, Vinyasa, and restorative yoga, with modifications provided for different fitness levels and physical limitations. The session takes place in our serene wellness center, complete with calming music, aromatherapy, and natural lighting. All necessary equipment including yoga mats, blocks, and straps are provided. Participants often report improved focus, reduced workplace stress, better sleep quality, and increased overall well-being. The session concludes with a brief meditation and healthy refreshments featuring herbal teas and nutritious snacks.",
+            category: "wellness",
+            date: "2024-03-13",
+            time: "08:00",
+            location: "Wellness Center",
+            capacity: 25,
+            registered: 20,
+            status: "upcoming",
+            organizer: "Wellness Committee",
+            tags: ["wellness", "yoga", "health"],
+            image: "/api/placeholder/400/200"
+          },
+          {
+            id: 5,
+            title: "Q1 All-Hands Meeting",
+            description: "Join our comprehensive quarterly all-hands meeting where we celebrate achievements, share strategic insights, and align on our collective vision for the upcoming quarter. This important company-wide gathering features presentations from our executive leadership team, including detailed performance reviews, financial highlights, market analysis, and strategic initiatives. You'll gain valuable insights into company growth metrics, new product launches, market expansion plans, and upcoming organizational changes. The meeting includes recognition ceremonies for outstanding employee achievements, team accomplishments, and milestone celebrations. We'll also unveil exciting new projects, partnership announcements, and innovation initiatives that will shape our company's future. Interactive Q&A sessions provide opportunities to engage directly with senior leadership, ask questions about company direction, and share feedback on workplace initiatives. The event features department spotlights showcasing innovative projects and success stories from across the organization. Additionally, we'll present updates on employee benefits, professional development opportunities, and workplace enhancement programs. The meeting concludes with networking refreshments and informal discussions with colleagues from different departments, fostering cross-functional collaboration and company-wide community building.",
+            category: "company",
+            date: "2024-02-28",
+            time: "15:00",
+            location: "Main Conference Hall",
+            capacity: 300,
+            registered: 280,
+            status: "completed",
+            organizer: "Executive Team",
+            tags: ["quarterly", "all-hands", "company-update"],
+            image: "/api/placeholder/400/200"
+          }
+        ];
+
+        const mockRegistrations = [
+          { eventId: 1, status: "registered" },
+          { eventId: 4, status: "registered" }
+        ];
+
+        console.log('Using mock data - Events:', mockEvents);
+        console.log('Mock event descriptions:', mockEvents.map(e => ({ title: e.title, description: e.description.substring(0, 100) + '...' })));
+        setEvents(mockEvents);
+        setUserRegistrations(mockRegistrations);
+        setError(null); // Clear error since we have fallback data
+        setLoading(false);
+    };
+
+    loadData();
+  }, []);
 
   // Custom SVG illustrations for different event types
   const getEventIllustration = (category) => {
@@ -164,6 +273,27 @@ const EmployeeEvents = () => {
           <text x="200" y="170" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">Social Event</text>
         </svg>
       ),
+      'company': (
+        <svg viewBox="0 0 400 200" className="w-full h-full">
+          <defs>
+            <linearGradient id="companyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0F172A" />
+              <stop offset="100%" stopColor="#334155" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="200" fill="url(#companyGrad)" />
+          <rect x="120" y="50" width="160" height="100" rx="8" fill="white" opacity="0.9" />
+          <rect x="140" y="70" width="120" height="60" rx="4" fill="#0F172A" opacity="0.1" />
+          <rect x="160" y="85" width="80" height="6" rx="3" fill="#0F172A" opacity="0.6" />
+          <rect x="160" y="95" width="60" height="4" rx="2" fill="#0F172A" opacity="0.4" />
+          <rect x="160" y="105" width="70" height="4" rx="2" fill="#0F172A" opacity="0.4" />
+          <circle cx="170" cy="120" r="4" fill="#0F172A" opacity="0.6" />
+          <circle cx="190" cy="120" r="4" fill="#0F172A" opacity="0.6" />
+          <circle cx="210" cy="120" r="4" fill="#0F172A" opacity="0.6" />
+          <circle cx="230" cy="120" r="4" fill="#0F172A" opacity="0.6" />
+          <text x="200" y="175" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">Company Meeting</text>
+        </svg>
+      ),
       'default': (
         <svg viewBox="0 0 400 200" className="w-full h-full">
           <defs>
@@ -183,98 +313,67 @@ const EmployeeEvents = () => {
     return illustrations[category] || illustrations['default'];
   };
 
-  // Mock event data
-  const events = [
-    {
-      id: 1,
-      title: 'Annual Company Retreat',
-      category: 'team-building',
-      date: '2024-03-15',
-      time: '09:00 AM',
-      location: 'Mountain View Resort',
-      description: 'Join us for our annual company retreat featuring team building activities, workshops, and networking opportunities.',
-      image: '/api/placeholder/400/200',
-      capacity: 150,
-      registered: 89,
-      waitlist: 12,
-      status: 'open',
-      organizer: 'HR Department',
-      tags: ['team-building', 'networking', 'workshops'],
-      price: 'Free',
-      agenda: [
-        { time: '09:00', activity: 'Registration & Welcome Coffee' },
-        { time: '10:00', activity: 'Opening Keynote: Vision 2024' },
-        { time: '11:30', activity: 'Team Building Activities' },
-        { time: '13:00', activity: 'Lunch & Networking' },
-        { time: '14:30', activity: 'Innovation Workshops' },
-        { time: '16:00', activity: 'Awards & Recognition' },
-        { time: '17:00', activity: 'Closing Reception' }
-      ],
-      requirements: ['Business casual attire', 'Laptop for workshops', 'Comfortable shoes for activities'],
-      benefits: ['Team bonding', 'Skill development', 'Networking', 'Recognition'],
-      speakers: [
-        { name: 'Sarah Johnson', role: 'CEO', topic: 'Company Vision' },
-        { name: 'Mike Chen', role: 'CTO', topic: 'Innovation Trends' },
-        { name: 'Lisa Rodriguez', role: 'VP HR', topic: 'Team Excellence' }
-      ],
-      materials: [
-        { name: 'Event Schedule', type: 'pdf', size: '1.2 MB' },
-        { name: 'Workshop Materials', type: 'zip', size: '5.8 MB' },
-        { name: 'Networking Guide', type: 'pdf', size: '890 KB' }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Tech Innovation Summit',
-      category: 'professional',
-      date: '2024-03-22',
-      time: '10:00 AM',
-      location: 'Conference Center A',
-      description: 'Explore the latest technology trends and innovations shaping our industry.',
-      image: '/api/placeholder/400/200',
-      capacity: 200,
-      registered: 156,
-      waitlist: 8,
-      status: 'open',
-      organizer: 'Tech Team',
-      tags: ['technology', 'innovation', 'professional'],
-      price: 'Free'
-    },
-    {
-      id: 3,
-      title: 'Wellness Workshop',
-      category: 'wellness',
-      date: '2024-03-28',
-      time: '02:00 PM',
-      location: 'Wellness Center',
-      description: 'Learn about mental health, stress management, and work-life balance.',
-      image: '/api/placeholder/400/200',
-      capacity: 50,
-      registered: 45,
-      waitlist: 5,
-      status: 'open',
-      organizer: 'Wellness Committee',
-      tags: ['wellness', 'mental-health', 'work-life-balance'],
-      price: 'Free'
-    },
-    {
-      id: 4,
-      title: 'Leadership Development Program',
-      category: 'training',
-      date: '2024-04-05',
-      time: '09:00 AM',
-      location: 'Training Room B',
-      description: 'Develop your leadership skills with interactive workshops and case studies.',
-      image: '/api/placeholder/400/200',
-      capacity: 30,
-      registered: 25,
-      waitlist: 15,
-      status: 'open',
-      organizer: 'Learning & Development',
-      tags: ['leadership', 'training', 'development'],
-      price: 'Free'
+  // Helper function to check if user is registered for an event
+  const isUserRegistered = (eventId) => {
+    return userRegistrations.some(reg => reg.eventId === eventId && reg.status === 'CONFIRMED');
+  };
+
+  // Handle event registration
+  const handleRegisterForEvent = async (eventId) => {
+    try {
+      await eventService.registerForEvent(eventId);
+      
+      // Refresh user registrations
+      const registrationsResponse = await eventService.getUserRegistrations();
+      setUserRegistrations(registrationsResponse.data || []);
+      
+      // Show success message (you can implement a toast notification here)
+      alert('Successfully registered for the event!');
+    } catch (err) {
+      console.error('Error registering for event:', err);
+      
+      // Fallback: Update local state for mock data
+      const newRegistration = { eventId: eventId, status: 'CONFIRMED' };
+      setUserRegistrations(prev => [...prev, newRegistration]);
+      
+      // Update event registered count
+      setEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, registered: event.registered + 1 }
+          : event
+      ));
+      
+      alert('Successfully registered for the event! (Mock mode)');
     }
-  ];
+  };
+
+  // Handle event registration cancellation
+  const handleCancelRegistration = async (eventId) => {
+    try {
+      await eventService.cancelRegistration(eventId);
+      
+      // Refresh user registrations
+      const registrationsResponse = await eventService.getUserRegistrations();
+      setUserRegistrations(registrationsResponse.data || []);
+      
+      // Show success message
+      alert('Registration cancelled successfully!');
+    } catch (err) {
+      console.error('Error cancelling registration:', err);
+      
+      // Fallback: Update local state for mock data
+      setUserRegistrations(prev => prev.filter(reg => reg.eventId !== eventId));
+      
+      // Update event registered count
+      setEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, registered: Math.max(0, event.registered - 1) }
+          : event
+      ));
+      
+      alert('Registration cancelled successfully! (Mock mode)');
+    }
+  };
 
   const categories = [
     { id: 'all', label: 'All Events', icon: List },
@@ -310,8 +409,12 @@ const EmployeeEvents = () => {
   };
 
   const handleRegister = (eventId) => {
-    // Handle event registration logic
-    console.log('Registering for event:', eventId);
+    const isRegistered = isUserRegistered(eventId);
+    if (isRegistered) {
+      handleCancelRegistration(eventId);
+    } else {
+      handleRegisterForEvent(eventId);
+    }
   };
 
   const handleWaitlist = (eventId) => {
@@ -321,22 +424,51 @@ const EmployeeEvents = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Event Management</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Discover and register for company events
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
-              <Plus size={18} />
-              Request Event
-            </button>
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading events...</p>
           </div>
         </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <X className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      {!loading && !error && (
+        <>
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Event Management</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Discover and register for company events
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
+                  <Plus size={18} />
+                  Request Event
+                </button>
+              </div>
+            </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -530,15 +662,19 @@ const EmployeeEvents = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {event.status === 'open' ? (
+                  {event.status === 'ACTIVE' ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRegister(event.id);
                       }}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+                      className={`px-4 py-2 text-white text-sm rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg ${
+                        isUserRegistered(event.id)
+                          ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                          : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                      }`}
                     >
-                      Register
+                      {isUserRegistered(event.id) ? 'Cancel Registration' : 'Register'}
                     </button>
                   ) : (
                     <button
@@ -697,12 +833,16 @@ const EmployeeEvents = () => {
                     </div>
  
                     <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
-                      {selectedEvent.status === 'open' ? (
+                      {selectedEvent.status === 'ACTIVE' ? (
                         <button
                           onClick={() => handleRegister(selectedEvent.id)}
-                          className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                          className={`w-full px-6 py-3 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl ${
+                            isUserRegistered(selectedEvent.id)
+                              ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+                              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                          }`}
                         >
-                          Register for Event
+                          {isUserRegistered(selectedEvent.id) ? 'Cancel Registration' : 'Register for Event'}
                         </button>
                       ) : (
                         <button
@@ -735,6 +875,8 @@ const EmployeeEvents = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

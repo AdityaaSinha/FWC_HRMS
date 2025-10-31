@@ -1,5 +1,5 @@
 // src/pages/hr/HRCandidatesDashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Mail, 
@@ -20,11 +20,15 @@ import {
   Award,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import candidateService from '../../services/candidateService.js';
+import interviewService from '../../services/interviewService.js';
+import jobService from '../../services/jobService.js';
 
-// Enhanced mock candidates with comprehensive application data
+// Enhanced mock candidates with comprehensive application data (fallback)
 const ENHANCED_CANDIDATES = [
   { 
     id: 1, 
@@ -140,12 +144,12 @@ const ENHANCED_CANDIDATES = [
 
 // Status configuration
 const STATUS_CONFIG = {
-  new: { label: 'New', color: 'bg-blue-900/30 text-blue-300 border-blue-700', icon: Clock },
-  in_review: { label: 'In Review', color: 'bg-yellow-900/30 text-yellow-300 border-yellow-700', icon: Eye },
-  interviewed: { label: 'Interviewed', color: 'bg-purple-900/30 text-purple-300 border-purple-700', icon: Calendar },
-  offer_sent: { label: 'Offer Sent', color: 'bg-orange-900/30 text-orange-300 border-orange-700', icon: Mail },
-  hired: { label: 'Hired', color: 'bg-green-900/30 text-green-300 border-green-700', icon: CheckCircle },
-  rejected: { label: 'Rejected', color: 'bg-red-900/30 text-red-300 border-red-700', icon: XCircle }
+  NEW: { label: 'New', color: 'bg-blue-900/30 text-blue-300 border-blue-700', icon: Clock },
+  SCREENING: { label: 'Screening', color: 'bg-yellow-900/30 text-yellow-300 border-yellow-700', icon: Eye },
+  INTERVIEW: { label: 'Interview', color: 'bg-purple-900/30 text-purple-300 border-purple-700', icon: Calendar },
+  OFFERED: { label: 'Offered', color: 'bg-orange-900/30 text-orange-300 border-orange-700', icon: Mail },
+  HIRED: { label: 'Hired', color: 'bg-green-900/30 text-green-300 border-green-700', icon: CheckCircle },
+  REJECTED: { label: 'Rejected', color: 'bg-red-900/30 text-red-300 border-red-700', icon: XCircle }
 };
 
 export default function HRCandidatesDashboard() {
@@ -156,18 +160,154 @@ export default function HRCandidatesDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
+  
+  // Candidate creation modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    appliedForJobId: ''
+  });
+  
+  // Jobs for dropdown
+  const [availableJobs, setAvailableJobs] = useState([]);
+  
+  // API state
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCandidates: 0
+  });
 
-  // Filter candidates based on job ID from URL params and other filters
-  const filteredCandidates = ENHANCED_CANDIDATES.filter(candidate => {
-    const matchesJob = !jobFilter || candidate.jobId.toString() === jobFilter;
-    const matchesSearch = !searchTerm || 
-      candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      candidate.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      candidate.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      candidate.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || candidate.status === statusFilter;
+  // Fetch candidates from API
+  const fetchCandidates = async (page = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = {
+        page,
+        limit: 10,
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(jobFilter && { jobId: jobFilter })
+      };
+
+      const response = await candidateService.getAllCandidates(params);
+      setCandidates(response.candidates || []);
+      setPagination({
+        currentPage: response.pagination?.currentPage || 1,
+        totalPages: response.pagination?.totalPages || 1,
+        totalCandidates: response.pagination?.totalCandidates || 0
+      });
+    } catch (err) {
+      console.error('Error fetching candidates:', err);
+      setError('Failed to load candidates. Please try again.');
+      // Fallback to mock data on error
+      setCandidates(ENHANCED_CANDIDATES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch available jobs for candidate creation
+  const fetchAvailableJobs = async () => {
+    try {
+      const response = await jobService.getAllJobs({ status: 'OPEN', limit: 100 });
+      setAvailableJobs(response.jobs || []);
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      // Fallback to mock jobs
+      setAvailableJobs([
+        { id: 1, title: 'Senior Frontend Developer', department: 'Engineering' },
+        { id: 2, title: 'Backend Developer', department: 'Engineering' },
+        { id: 3, title: 'Product Manager', department: 'Product' },
+        { id: 4, title: 'UI/UX Designer', department: 'Design' },
+        { id: 5, title: 'Data Analyst', department: 'Analytics' }
+      ]);
+    }
+  };
+
+  // Handle candidate creation
+  const handleCreateCandidate = async (e) => {
+    e.preventDefault();
     
-    return matchesJob && matchesSearch && matchesStatus;
+    if (!createFormData.name || !createFormData.email || !createFormData.appliedForJobId) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      await candidateService.createCandidate(createFormData);
+      
+      // Reset form and close modal
+      setCreateFormData({
+        name: '',
+        email: '',
+        phone: '',
+        appliedForJobId: ''
+      });
+      setShowCreateModal(false);
+      
+      // Refresh candidates list
+      fetchCandidates(pagination.currentPage);
+      
+      alert('Candidate created successfully!');
+    } catch (err) {
+      console.error('Error creating candidate:', err);
+      alert('Failed to create candidate. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Handle form input changes
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setCreateFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Load candidates on component mount and when filters change
+  useEffect(() => {
+    fetchCandidates(1);
+    fetchAvailableJobs();
+  }, [searchTerm, statusFilter, jobFilter]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== '') {
+        fetchCandidates(1);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  // Filter candidates for display (when using fallback data)
+  const filteredCandidates = candidates.filter(candidate => {
+    if (candidates === ENHANCED_CANDIDATES) {
+      // Apply client-side filtering for mock data
+      const matchesJob = !jobFilter || candidate.jobId?.toString() === jobFilter;
+      const matchesSearch = !searchTerm || 
+        candidate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        candidate.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        candidate.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        candidate.skills?.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesStatus = statusFilter === 'all' || candidate.status === statusFilter;
+      
+      return matchesJob && matchesSearch && matchesStatus;
+    }
+    // For API data, filtering is done server-side
+    return true;
   });
 
   const handleViewApplication = (candidate) => {
@@ -175,9 +315,25 @@ export default function HRCandidatesDashboard() {
     setShowApplicationModal(true);
   };
 
-  const handleStatusChange = (candidateId, newStatus) => {
-    // In a real app, this would update the backend
-    console.log(`Updating candidate ${candidateId} status to ${newStatus}`);
+  const handleStatusChange = async (candidateId, newStatus) => {
+    try {
+      await candidateService.updateCandidateStatus(candidateId, newStatus);
+      // Refresh candidates list
+      fetchCandidates(pagination.currentPage);
+    } catch (err) {
+      console.error('Error updating candidate status:', err);
+      alert('Failed to update candidate status. Please try again.');
+    }
+  };
+
+  const handleScheduleInterview = async (candidate) => {
+    try {
+      // This would open an interview scheduling modal in a real implementation
+      console.log('Scheduling interview for candidate:', candidate.id);
+      alert('Interview scheduling feature will be implemented in the next phase.');
+    } catch (err) {
+      console.error('Error scheduling interview:', err);
+    }
   };
 
   return (
@@ -193,14 +349,33 @@ export default function HRCandidatesDashboard() {
               Viewing applications for Job ID: {jobFilter}
             </p>
           )}
+          {pagination.totalCandidates > 0 && (
+            <p className="text-gray-400">
+              {pagination.totalCandidates} total candidates
+            </p>
+          )}
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus size={16} />
+            Add Candidate
+          </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
             <Download size={16} />
             Export
           </button>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
 
       {/* Filters and Search */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -243,110 +418,149 @@ export default function HRCandidatesDashboard() {
         })}
       </div>
 
-      {/* Candidates Table */}
-      <div className="bg-[#1B1E2B] rounded-xl border border-gray-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-gray-300">
-            <thead className="bg-[#23263A] text-gray-400 text-sm uppercase">
-              <tr>
-                <th className="px-6 py-3">Candidate</th>
-                <th className="px-6 py-3">Role</th>
-                <th className="px-6 py-3">Score</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Applied</th>
-                <th className="px-6 py-3">Experience</th>
-                <th className="px-6 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCandidates.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                    No candidates found matching your criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredCandidates.map((candidate) => {
-                  const statusConfig = STATUS_CONFIG[candidate.status];
-                  const StatusIcon = statusConfig.icon;
-                  
-                  return (
-                    <tr key={candidate.id} className="border-b border-gray-800 hover:bg-[#23263A] transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
-                            <User size={20} className="text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-white">{candidate.name}</h3>
-                            <p className="text-sm text-gray-400">{candidate.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-white">{candidate.role}</p>
-                          <p className="text-sm text-gray-400">{candidate.jobTitle}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Star size={16} className="text-yellow-400" />
-                          <span className="font-medium text-white">{candidate.score}%</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
-                          <StatusIcon size={12} />
-                          {statusConfig.label}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {new Date(candidate.appliedDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {candidate.experience}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewApplication(candidate)}
-                            className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded transition-colors"
-                            title="View Application"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          <button
-                            className="p-2 text-green-400 hover:text-green-300 hover:bg-green-900/20 rounded transition-colors"
-                            title="Schedule Interview"
-                          >
-                            <Calendar size={16} />
-                          </button>
-                          <button
-                            className="p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 rounded transition-colors"
-                            title="Send Message"
-                          >
-                            <MessageSquare size={16} />
-                          </button>
-                          <select
-                            value={candidate.status}
-                            onChange={(e) => handleStatusChange(candidate.id, e.target.value)}
-                            className="text-xs bg-[#2A2D3D] border border-gray-700 rounded px-2 py-1 text-white"
-                          >
-                            {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                              <option key={key} value={key}>{config.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-[#1B1E2B] rounded-xl border border-gray-800 p-8">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            <span className="ml-3 text-gray-400">Loading candidates...</span>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Candidates Table */}
+      {!loading && (
+        <div className="bg-[#1B1E2B] rounded-xl border border-gray-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-gray-300">
+              <thead className="bg-[#23263A] text-gray-400 text-sm uppercase">
+                <tr>
+                  <th className="px-6 py-3">Candidate</th>
+                  <th className="px-6 py-3">Role</th>
+                  <th className="px-6 py-3">Score</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Applied</th>
+                  <th className="px-6 py-3">Experience</th>
+                  <th className="px-6 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCandidates.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                      No candidates found matching your criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCandidates.map((candidate) => {
+                    const statusConfig = STATUS_CONFIG[candidate.status] || STATUS_CONFIG.NEW;
+                    const StatusIcon = statusConfig.icon;
+                    
+                    return (
+                      <tr key={candidate.id} className="border-b border-gray-800 hover:bg-[#23263A] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
+                              <User size={20} className="text-white" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-white">{candidate.name || candidate.firstName + ' ' + candidate.lastName}</h3>
+                              <p className="text-sm text-gray-400">{candidate.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-medium text-white">{candidate.role || candidate.position}</p>
+                            <p className="text-sm text-gray-400">{candidate.jobTitle || candidate.job?.title}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Star size={16} className="text-yellow-400" />
+                            <span className="font-medium text-white">{candidate.score || 'N/A'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+                            <StatusIcon size={12} />
+                            {statusConfig.label}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {candidate.appliedDate ? new Date(candidate.appliedDate).toLocaleDateString() : 
+                           candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {candidate.experience || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleViewApplication(candidate)}
+                              className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded transition-colors"
+                              title="View Application"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleScheduleInterview(candidate)}
+                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-900/20 rounded transition-colors"
+                              title="Schedule Interview"
+                            >
+                              <Calendar size={16} />
+                            </button>
+                            <button
+                              className="p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 rounded transition-colors"
+                              title="Send Message"
+                            >
+                              <MessageSquare size={16} />
+                            </button>
+                            <select
+                              value={candidate.status}
+                              onChange={(e) => handleStatusChange(candidate.id, e.target.value)}
+                              className="text-xs bg-[#2A2D3D] border border-gray-700 rounded px-2 py-1 text-white"
+                            >
+                              {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                                <option key={key} value={key}>{config.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-800 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => fetchCandidates(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-1 bg-[#2A2D3D] border border-gray-700 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3A3D4D] transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => fetchCandidates(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-1 bg-[#2A2D3D] border border-gray-700 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#3A3D4D] transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Application Detail Modal */}
       {showApplicationModal && selectedCandidate && (
@@ -355,8 +569,10 @@ export default function HRCandidatesDashboard() {
             <div className="p-6 border-b border-gray-800">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">{selectedCandidate.name}</h2>
-                  <p className="text-gray-400">{selectedCandidate.jobTitle}</p>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {selectedCandidate.name || `${selectedCandidate.firstName} ${selectedCandidate.lastName}`}
+                  </h2>
+                  <p className="text-gray-400">{selectedCandidate.jobTitle || selectedCandidate.job?.title}</p>
                 </div>
                 <button
                   onClick={() => setShowApplicationModal(false)}
@@ -379,11 +595,11 @@ export default function HRCandidatesDashboard() {
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <Phone size={16} />
-                      <span>{selectedCandidate.phone}</span>
+                      <span>{selectedCandidate.phone || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <MapPin size={16} />
-                      <span>{selectedCandidate.location}</span>
+                      <span>{selectedCandidate.location || selectedCandidate.address || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -393,42 +609,51 @@ export default function HRCandidatesDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-gray-300">
                       <Calendar size={16} />
-                      <span>Applied: {new Date(selectedCandidate.appliedDate).toLocaleDateString()}</span>
+                      <span>Applied: {selectedCandidate.appliedDate 
+                        ? new Date(selectedCandidate.appliedDate).toLocaleDateString()
+                        : selectedCandidate.createdAt 
+                        ? new Date(selectedCandidate.createdAt).toLocaleDateString()
+                        : 'N/A'
+                      }</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <Briefcase size={16} />
-                      <span>Experience: {selectedCandidate.experience}</span>
+                      <span>Experience: {selectedCandidate.experience || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <GraduationCap size={16} />
-                      <span>{selectedCandidate.education}</span>
+                      <span>{selectedCandidate.education || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Skills */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Skills</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedCandidate.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-indigo-900/30 text-indigo-300 rounded-full text-sm border border-indigo-700"
-                    >
-                      {skill}
-                    </span>
-                  ))}
+              {(selectedCandidate.skills || selectedCandidate.skillsArray) && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(selectedCandidate.skills || selectedCandidate.skillsArray || []).map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-indigo-900/30 text-indigo-300 rounded-full text-sm border border-indigo-700"
+                      >
+                        {typeof skill === 'string' ? skill : skill.name || skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Cover Letter */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Cover Letter</h3>
-                <div className="bg-[#2A2D3D] p-4 rounded-lg border border-gray-700">
-                  <p className="text-gray-300">{selectedCandidate.coverLetter}</p>
+              {selectedCandidate.coverLetter && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Cover Letter</h3>
+                  <div className="bg-[#2A2D3D] p-4 rounded-lg border border-gray-700">
+                    <p className="text-gray-300">{selectedCandidate.coverLetter}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Notes */}
               {selectedCandidate.notes && (
@@ -442,11 +667,16 @@ export default function HRCandidatesDashboard() {
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t border-gray-800">
-                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                  <Download size={16} />
-                  Download Resume
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                {selectedCandidate.resumeUrl && (
+                  <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    <Download size={16} />
+                    Download Resume
+                  </button>
+                )}
+                <button 
+                  onClick={() => handleScheduleInterview(selectedCandidate)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
                   <Calendar size={16} />
                   Schedule Interview
                 </button>
@@ -456,6 +686,104 @@ export default function HRCandidatesDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Creation Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Add New Candidate</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCandidate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={createFormData.name}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={createFormData.email}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={createFormData.phone}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Applied For Job *
+                </label>
+                <select
+                  name="appliedForJobId"
+                  value={createFormData.appliedForJobId}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select a job position</option>
+                  {availableJobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title} - {job.department}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  disabled={isCreating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  disabled={isCreating}
+                >
+                  {isCreating ? 'Creating...' : 'Create Candidate'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

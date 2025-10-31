@@ -362,13 +362,13 @@ const EmployeeTasks = () => {
 
   // Mock team members data
   const [teamMembers] = useState([
-    { id: 'user1', name: 'Aryabrat Mishra', role: 'Frontend Developer', avatar: '👨‍💻' },
-    { id: 'user2', name: 'Alex Rivera', role: 'Backend Developer', avatar: '👩‍💻' },
-    { id: 'user3', name: 'Jordan Kim', role: 'UI/UX Designer', avatar: '🎨' },
-    { id: 'user4', name: 'Emily Chen', role: 'Senior Developer', avatar: '👩‍🔬' },
-    { id: 'user5', name: 'David Park', role: 'DevOps Engineer', avatar: '⚙️' },
-    { id: 'user6', name: 'Sarah Johnson', role: 'Project Manager', avatar: '👩‍💼' },
-    { id: 'user7', name: 'Michael Rodriguez', role: 'Tech Lead', avatar: '👨‍💼' }
+    { id: 'user1', name: 'Aryabrat Mishra', role: 'Frontend Developer', avatar: 'https://i.pravatar.cc/150?img=33' },
+    { id: 'user2', name: 'Alex Rivera', role: 'Backend Developer', avatar: 'https://i.pravatar.cc/150?img=35' },
+    { id: 'user3', name: 'Jordan Kim', role: 'UI/UX Designer', avatar: 'https://i.pravatar.cc/150?img=41' },
+    { id: 'user4', name: 'Emily Chen', role: 'Senior Developer', avatar: 'https://i.pravatar.cc/150?img=44' },
+    { id: 'user5', name: 'David Park', role: 'DevOps Engineer', avatar: 'https://i.pravatar.cc/150?img=52' },
+    { id: 'user6', name: 'Sarah Johnson', role: 'Project Manager', avatar: 'https://i.pravatar.cc/150?img=49' },
+    { id: 'user7', name: 'Michael Rodriguez', role: 'Tech Lead', avatar: 'https://i.pravatar.cc/150?img=60' }
   ]);
 
   const getStatusColor = (status) => {

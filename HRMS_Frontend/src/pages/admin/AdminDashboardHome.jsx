@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Building, Briefcase, CheckCircle } from 'lucide-react';
+import { Users, Building, Briefcase, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { generateSmartPravavatarUrl } from '../../utils/pravavatarUtils';
 
 // Import Child Components used in this dashboard
 import DepartmentOverviewCard from '../../components/admin/DeparmentOverviewCard'
@@ -8,6 +9,26 @@ import QuickActionsCard from '../../components/admin/QuickActionsCard';
 // --- Ensure this component exists and is imported ---
 import TinyLineChartCard from '../../components/admin/TinyLineChartCard';
 // ---
+
+// Local Avatar Component
+const AvatarWithFallback = ({ identifier, name, size = 32, className = "" }) => {
+  const user = {
+    id: identifier,
+    name: name || 'User',
+    email: identifier
+  };
+  
+  const avatarSrc = generateSmartPravavatarUrl(user, size);
+
+  return (
+    <img
+      src={avatarSrc}
+      alt={name || 'User Avatar'}
+      className={`rounded-full border border-gray-600 ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
+};
 
 // StatCard component
 const StatCard = ({ title, value, icon, color }) => (
@@ -55,16 +76,34 @@ export default function AdminDashboardHome() {
       // ---
       setError(null);
 
+      // Mock users data for activity charts
+      const mockUsers = [
+        { name: 'John Smith', role: 'Admin', employeeId: 'EMP001' },
+        { name: 'Sarah Johnson', role: 'HR Manager', employeeId: 'EMP002' },
+        { name: 'Mike Chen', role: 'Developer', employeeId: 'EMP003' },
+        { name: 'Emily Davis', role: 'Designer', employeeId: 'EMP004' },
+        { name: 'David Wilson', role: 'Manager', employeeId: 'EMP005' },
+        { name: 'Lisa Brown', role: 'Analyst', employeeId: 'EMP006' },
+        { name: 'Tom Anderson', role: 'Employee', employeeId: 'EMP007' },
+        { name: 'Anna Martinez', role: 'HR', employeeId: 'EMP008' },
+        { name: 'Chris Taylor', role: 'Developer', employeeId: 'EMP009' },
+        { name: 'Jessica Lee', role: 'Manager', employeeId: 'EMP010' },
+        { name: 'Robert Garcia', role: 'Employee', employeeId: 'EMP011' },
+        { name: 'Michelle White', role: 'Designer', employeeId: 'EMP012' }
+      ];
+
       try {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No authentication token found. Please log in.');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Define fetch promises (including activity endpoints)
+        // Define fetch promises for real API endpoints
         const fetchPromises = [
-          fetch('http://localhost:3001/api/admin/dashboard-stats', { headers }),
-          fetch('http://localhost:3001/api/admin/department-overview', { headers }),
-          fetch('http://localhost:3001/api/admin/recent-employees', { headers }),
+          fetch('http://localhost:3001/api/dashboard-stats/stats', { headers }),
+          fetch('http://localhost:3001/api/departments', { headers }),
+          fetch('http://localhost:3001/api/employees?limit=10&sortBy=createdAt&sortOrder=desc', { headers }),
+          fetch('http://localhost:3001/api/jobs/stats/overview', { headers }),
+          fetch('http://localhost:3001/api/leave/pending', { headers }),
           // --- Fetch activity data ---
           fetch('http://localhost:3001/api/admin/activity/daily', { headers }),
           fetch('http://localhost:3001/api/admin/activity/weekly', { headers })
@@ -72,34 +111,112 @@ export default function AdminDashboardHome() {
         ];
 
         const results = await Promise.allSettled(fetchPromises);
-        const [statsRes, deptsRes, employeesRes, dailyRes, weeklyRes] = results; // Destructure results
+        const [dashboardStatsRes, deptsRes, employeesRes, jobStatsRes, pendingApprovalsRes, dailyActivitiesRes, weeklyActivitiesRes] = results;
 
-        // Process Stats
-        if (statsRes.status === 'fulfilled' && statsRes.value.ok) setStats(await statsRes.value.json());
-        else { console.error("Stats fetch failed:", statsRes.reason || statsRes.value?.statusText); setError(prev => prev ? `${prev}, Stats` : 'Stats'); }
+        // Process Dashboard Stats
+        let dashboardStats = {};
+        if (dashboardStatsRes.status === 'fulfilled' && dashboardStatsRes.value.ok) {
+          dashboardStats = await dashboardStatsRes.value.json();
+        } else { 
+          console.error("Dashboard stats fetch failed:", dashboardStatsRes.reason || dashboardStatsRes.value?.statusText); 
+        }
+
+        // Process Job Stats
+        let jobStats = {};
+        if (jobStatsRes.status === 'fulfilled' && jobStatsRes.value.ok) {
+          jobStats = await jobStatsRes.value.json();
+        } else { 
+          console.error("Job stats fetch failed:", jobStatsRes.reason || jobStatsRes.value?.statusText); 
+        }
+
+        // Process Pending Approvals
+        let pendingCount = 0;
+        if (pendingApprovalsRes.status === 'fulfilled' && pendingApprovalsRes.value.ok) {
+          const pendingData = await pendingApprovalsRes.value.json();
+          pendingCount = Array.isArray(pendingData) ? pendingData.length : 0;
+        } else { 
+          console.error("Pending approvals fetch failed:", pendingApprovalsRes.reason || pendingApprovalsRes.value?.statusText); 
+        }
+
+        // Combine all stats
+        const combinedStats = {
+          totalEmployees: dashboardStats.totalEmployees || 0,
+          openJobRoles: jobStats.openJobs || 0,
+          pendingApprovals: pendingCount,
+          departmentCount: dashboardStats.departmentCount || 0
+        };
+        setStats(combinedStats);
         setIsLoadingStats(false);
 
         // Process Departments
-        if (deptsRes.status === 'fulfilled' && deptsRes.value.ok) setDepartments(await deptsRes.value.json());
-        else { console.error("Depts fetch failed:", deptsRes.reason || deptsRes.value?.statusText); setError(prev => prev ? `${prev}, Depts` : 'Depts'); }
+        if (deptsRes.status === 'fulfilled' && deptsRes.value.ok) {
+          const deptsResponse = await deptsRes.value.json();
+          const deptsData = deptsResponse.success ? deptsResponse.data : deptsResponse;
+          setDepartments(deptsData);
+        } else { 
+          console.error("Depts fetch failed:", deptsRes.reason || deptsRes.value?.statusText); 
+          setError(prev => prev ? `${prev}, Depts` : 'Depts'); 
+        }
         setIsLoadingDepts(false);
 
         // Process Employees
-        if (employeesRes.status === 'fulfilled' && employeesRes.value.ok) setRecentEmployees(await employeesRes.value.json());
-        else { console.error("Employees fetch failed:", employeesRes.reason || employeesRes.value?.statusText); setError(prev => prev ? `${prev}, Employees` : 'Employees'); }
+        if (employeesRes.status === 'fulfilled' && employeesRes.value.ok) {
+          const employeesResponse = await employeesRes.value.json();
+          const employeesData = employeesResponse.success ? employeesResponse.data?.employees || employeesResponse.data : employeesResponse.employees || employeesResponse;
+          setRecentEmployees(Array.isArray(employeesData) ? employeesData : []);
+        } else { 
+          console.error("Employees fetch failed:", employeesRes.reason || employeesRes.value?.statusText); 
+          setError(prev => prev ? `${prev}, Employees` : 'Employees'); 
+        }
         setIsLoadingEmployees(false);
 
-        // --- Process Daily Activity ---
-        if (dailyRes.status === 'fulfilled' && dailyRes.value.ok) setDailyActivity(await dailyRes.value.json());
-        else { console.error("Daily activity fetch failed:", dailyRes.reason || dailyRes.value?.statusText); setError(prev => prev ? `${prev}, Daily Activity` : 'Daily Activity'); }
+        // --- Process Activities (real data from API) ---
+        if (dailyActivitiesRes.status === 'fulfilled' && dailyActivitiesRes.value.ok) {
+          const dailyData = await dailyActivitiesRes.value.json();
+          // Transform API data to match the expected format
+          const transformedDailyData = dailyData.dailyActivity.map(item => ({
+            name: `${item.hour.toString().padStart(2, '0')}:00`,
+            logins: item.count,
+            users: item.users || []
+          }));
+          setDailyActivity(transformedDailyData);
+        } else { 
+          console.error("Daily activity fetch failed:", dailyActivitiesRes.reason || dailyActivitiesRes.value?.statusText); 
+          setError(prev => prev ? `${prev}, Daily Activity` : 'Daily Activity'); 
+          // Fallback to mock data
+          const mockDailyData = Array.from({ length: 24 }, (_, i) => ({
+            name: `${i.toString().padStart(2, '0')}:00`,
+            logins: Math.floor(Math.random() * 20) + 5,
+            users: []
+          }));
+          setDailyActivity(mockDailyData);
+        }
         setIsLoadingDaily(false);
-        // ---
 
-        // --- Process Weekly Activity ---
-        if (weeklyRes.status === 'fulfilled' && weeklyRes.value.ok) setWeeklyActivity(await weeklyRes.value.json());
-        else { console.error("Weekly activity fetch failed:", weeklyRes.reason || weeklyRes.value?.statusText); setError(prev => prev ? `${prev}, Weekly Activity` : 'Weekly Activity'); }
+        // --- Process Weekly Activity (real data from API) ---
+        if (weeklyActivitiesRes.status === 'fulfilled' && weeklyActivitiesRes.value.ok) {
+          const weeklyData = await weeklyActivitiesRes.value.json();
+          // Transform API data to match the expected format
+          const transformedWeeklyData = weeklyData.weeklyActivity.map(item => ({
+            name: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][item.day === 'Sunday' ? 0 : 
+                   item.day === 'Monday' ? 1 : item.day === 'Tuesday' ? 2 : item.day === 'Wednesday' ? 3 :
+                   item.day === 'Thursday' ? 4 : item.day === 'Friday' ? 5 : 6],
+            logins: item.count,
+            users: item.users || []
+          }));
+          setWeeklyActivity(transformedWeeklyData);
+        } else { 
+          console.error("Weekly activity fetch failed:", weeklyActivitiesRes.reason || weeklyActivitiesRes.value?.statusText); 
+          setError(prev => prev ? `${prev}, Weekly Activity` : 'Weekly Activity'); 
+          // Fallback to mock data
+          const mockWeeklyData = Array.from({ length: 7 }, (_, i) => ({
+            name: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i],
+            logins: Math.floor(Math.random() * 100) + 50,
+            users: []
+          }));
+          setWeeklyActivity(mockWeeklyData);
+        }
         setIsLoadingWeekly(false);
-        // ---
 
       } catch (err) {
         console.error("Dashboard fetch setup error:", err);
@@ -148,6 +265,7 @@ export default function AdminDashboardHome() {
               dataKey="logins" // Key in data objects holding the count
               isLoading={isLoadingDaily}
               color="#a78bfa" // Purple
+              icon={Clock}
             />
             <TinyLineChartCard
               title="Logins (Last 7 Days)"
@@ -155,6 +273,7 @@ export default function AdminDashboardHome() {
               dataKey="logins" // Key in data objects holding the count
               isLoading={isLoadingWeekly}
               color="#f472b6" // Pink
+              icon={Calendar}
             />
         </div>
       </div>
@@ -184,7 +303,7 @@ export default function AdminDashboardHome() {
                   {/* ... table thead ... */}
                   <thead className="bg-[#272B3F]">
                      <tr>
-                       <th className="p-4 text-xs font-semibold uppercase text-gray-400 sticky top-0 bg-[#272B3F]">Name</th>
+                       <th className="p-4 text-xs font-semibold uppercase text-gray-400 sticky top-0 bg-[#272B3F]">Employee</th>
                        <th className="p-4 text-xs font-semibold uppercase text-gray-400 sticky top-0 bg-[#272B3F]">Email</th>
                        <th className="p-4 text-xs font-semibold uppercase text-gray-400 sticky top-0 bg-[#272B3F]">Role</th>
                        <th className="p-4 text-xs font-semibold uppercase text-gray-400 sticky top-0 bg-[#272B3F]">Department</th>
@@ -194,9 +313,19 @@ export default function AdminDashboardHome() {
                   <tbody className="divide-y divide-[#2A2D3D]">
                     {recentEmployees.map(user => (
                       <tr key={user.id} className="hover:bg-[#2A2D3D]/60 transition-colors">
-                        <td className="p-4 font-medium text-white">{user.name}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <AvatarWithFallback
+                              identifier={user.employeeId || user.email}
+                              name={user.name}
+                              size={32}
+                              className="w-8 h-8 flex-shrink-0"
+                            />
+                            <span className="font-medium text-white">{user.name}</span>
+                          </div>
+                        </td>
                         <td className="p-4 text-sm text-gray-300">{user.email}</td>
-                        <td className="p-4 text-sm text-gray-300 capitalize">{user.role.toLowerCase()}</td>
+                        <td className="p-4 text-sm text-gray-300 capitalize">{user.role?.name?.toLowerCase() || user.role || 'N/A'}</td>
                         <td className="p-4 text-sm text-gray-300">{user.department || 'N/A'}</td>
                       </tr>
                     ))}
