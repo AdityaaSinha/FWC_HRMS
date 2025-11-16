@@ -217,21 +217,5 @@ VITE_API_URL="http://localhost:3000"
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- React team for the amazing framework
-- Prisma team for the excellent ORM
-- Tailwind CSS for the utility-first approach
-- All contributors and testers
-
-## 📞 Support
-
-For support, email support@fwc-hrms.com or join our Slack channel.
-
----
-
-**Made with ❤️ by the FWC Development Team**
